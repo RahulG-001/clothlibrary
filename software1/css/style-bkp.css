@@ -1,0 +1,270 @@
+* {
+	margin:0px;
+	padding:0px;
+}
+
+@font-face {
+  font-family: 'TrajanPro-Regular';
+  src: url('../fonts/TrajanPro-Regular.eot?#iefix') format('embedded-opentype'),  url('../fonts/TrajanPro-Regular.woff') format('woff'), url('../fonts/TrajanPro-Regular.ttf')  format('truetype'), url('../fonts/TrajanPro-Regular.svg#TrajanPro-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+	background:url(../images/bg.gif) repeat;
+	font-family:'TrajanPro-Regular', Arial, Helvetica, sans-serif;
+	font-size:0.85em;
+	line-height:24px;
+	text-transform:lowercase;
+	margin:20px 12px 12px 12px;
+}
+
+p {
+	padding-bottom:20px;
+}
+
+.clear {
+	clear:both;
+}
+
+.largeText {
+	color:#333;
+}
+
+.img-responsive {
+	max-width: 100%;
+	height: auto;
+}
+
+/* nav */
+
+/* top nav */
+ul.topNav {
+	list-style:none;
+	width:950px;
+	margin:0 auto;
+	padding:0px;
+}
+ul.topNav li {
+	margin-right:4px;
+	float:left;
+}
+ul.topNav li a {
+	background-color:#e1e1e1;
+	padding:4px 14px 4px 14px;
+	text-align:center;
+	color:#000;
+	text-decoration:none;
+	display: block;
+	font-size:0.85em;
+}
+ul.topNav li a.selected {
+	background-color:#c8a369;
+	color:#FFF;
+	font-weight:bold;
+}
+
+#mainPanel {
+	background-color:#e1e1e1;
+	width:950px;
+	margin:0 auto;
+	padding:40px;
+}
+
+/* logo */
+#logo {
+	margin:0 auto;
+	margin-bottom:30px;
+	text-align:center;
+}
+#logo h1 {
+	font-size:3em;
+	padding:15px 0px 10px 0px;
+	color:#19284c;
+	display: block;
+   	margin: 0 auto;
+	font-weight:bold;
+}
+#logo h1 img {vertical-align: middle}
+#logo h2 {
+	background:url(../images/lc_type_blue.png) no-repeat left;
+	width:660px;
+	height:104px;
+	vertical-align:middle;
+	float:left;
+}
+
+
+/* content area */
+#content_area {
+	border-top:1px solid #fff;
+	padding:30px 0px 10px 0px;
+	border-bottom:1px solid #fff;
+	margin-bottom:30px;
+	background-color:#e1e1e1;
+	min-height:250px;
+}
+
+#content_area .leftSection {
+	width:230px;
+	float:left;
+}
+img.img_border {
+	border:4px solid #fff;
+	max-width: 100%;
+	height: auto;
+}
+.signAling {
+	text-align:center;
+	padding-top:10px;
+}
+
+#content_area .rightSection {
+	width:620px;
+	float:right;
+}
+
+/* footer */
+#footer {
+	text-align:center;
+	font-size:0.85em;
+		line-height:14px;
+}
+.copyFtr {
+	padding-top:5px;
+}
+
+.mobileData {
+	display:none;
+}
+
+.dataHeading {
+	border-top:1px solid #FFF;
+	margin:0px 0px 20px 0px;
+	padding:10px 0px 10px 0px;
+}
+
+.scrollTbl {
+	max-height:500px;
+	overflow-y:scroll;
+}
+
+/* Smartphones (portrait and landscape) ----------- */
+@media only screen and (min-width : 581px) and (max-width : 1023px) {
+	ul.topNav {
+		width:auto;
+	}
+	#mainPanel {	
+		width: auto;
+		padding:20px;
+	}
+
+	/* logo */
+	#logo {
+		margin:0 auto;
+		margin-bottom:10px;
+		text-align:center;
+	}
+	#logo h1 {
+		font-size:2.5em;
+		padding:15px 0px 10px 0px;
+		color:#19284c;
+		display: block;
+		margin: 0 auto;
+	}
+	#content_area {
+		min-height:inherit;
+	}
+	#content_area .leftSection {
+		width:20%;
+	}
+	img.img_border {
+		border:4px solid #fff;
+		max-width: 100%;
+		height: auto;
+	}
+	.signAling img {
+		max-width: 100%;
+		height: auto;
+		
+	}
+	
+	#content_area .rightSection {
+		width:70%;
+	}
+	
+}
+
+
+/* Smartphones (portrait and landscape) ----------- */
+@media only screen and (max-width : 580px) {
+	ul.topNav {
+		width:auto;
+	}
+	#mainPanel {	
+		width: auto;
+		padding:20px;
+	}
+	#content_area {
+		min-height:inherit;
+	}
+	.mblCenter {
+		text-align:center;
+	}
+
+	#logo {
+		margin:0 auto;
+		margin-bottom:10px;
+		text-align:center;
+	}
+	#logo h1 {
+		font-size:1.3em;
+		padding:15px 0px 10px 0px;
+		color:#19284c;
+		display: block;
+		margin: 0 auto;
+	}
+	
+	ul.topNav li a {
+		padding:4px 10px 4px 10px;
+	}
+	
+	#content_area .leftSection {
+		width:auto;
+		float:none;
+	}
+	img.img_border {
+		border:4px solid #fff;
+		max-width: 100%;
+		height: auto;
+		margin-bottom:20px;
+	}
+	.signAling {
+		text-align:center;
+		padding-top:5px;
+		padding-bottom:10px;
+	}
+	
+	.signAling img {
+		max-width: 100%;
+		height: auto;
+	}
+	
+	#content_area .rightSection {
+		width:auto;
+		float:none;
+	}
+	
+}
+
+@media only screen and (max-width : 340px) {
+	#content_area {
+		min-height:inherit;
+	}
+	#logo h1 {
+		font-size:1em;
+	}
+	ul.topNav li a {
+		padding:4px 8px 4px 8px;
+	}
+}

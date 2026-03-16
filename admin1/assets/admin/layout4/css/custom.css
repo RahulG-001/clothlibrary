@@ -1,0 +1,33 @@
+/* here you can put your own css to customize and override the theme */
+
+/***
+Rounded Portlets
+***/
+/*
+.portlet {
+	border-radius: 4px !important;
+}
+
+.portlet .portlet-title {
+	border-radius: 4px 4px 0px 0px !important;
+}
+
+.portlet .portlet-body,
+.portlet .portlet-body .form-actions  {
+	border-radius: 0px 0px 4px 4px !important;
+}
+*/
+/* model header css */ 
+	.modal-header{
+		background: #2d99b1;
+	}
+	.modal-header h4{
+		text-transform: uppercase;
+		font-weight: bold;
+		color: #fff;
+	}
+	.close{
+		width:16px;
+		height:16px;
+		opacity:1;
+	}

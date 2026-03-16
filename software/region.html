@@ -1,0 +1,104 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lanificio Cucinello : Select Country</title>
+<script src="js/modernizr-2.6.2.min.js"></script>
+<link rel="stylesheet" type="text/css" href="bootstarp/bootstrap.css" />
+<link rel="stylesheet" type="text/css" href="css/style.css" />
+</head>
+
+<body>
+<!-- top nav -->
+<ul class="topNav">
+  <li><a class="admin" href="https://theclothlibrary.com">Home</a></li>
+  <li><a class="admin" href="region.html">User Login</a></li>
+  <li><a class="admin" href="admin/login.php">Admin Login</a></li>
+  <div class="clear"></div>
+</ul>
+<!-- page content -->
+<div id="mainPanel">
+  <!-- logo -->
+  <div id="logo">
+    <h1><img src="images/" width="50" height="51" alt="" />The clothlibrary</h1>
+  </div>
+
+  <!-- content_area -->
+  <div id="content_area">
+    <div class="bg-success" style="padding:20px 20px 10px 20px; margin-bottom:30px;">
+      <form class="form-group">
+        <div class="form-group" style="text-align:left">
+         <!--  <select class="form-control" id="country">
+            <option selected="selected">Select Country</option>
+            <option data-url="region/italy.html">Italy</option>
+            <option data-url="user/login.php">India</option>
+            <option data-url="region/uk.html">Uk</option>
+            <option data-url="region/hongkong.html">Hong Kong</option>
+            <option data-url="region/usa.html">USA</option>
+            <option data-url="region/france.html">France</option>
+          </select>
+          -->
+          <h4>Select Country:</h4>
+          <div class="radio">
+              <label>
+                <input type="radio" name="country" id="Italy" value="region/italy.html">
+              <img src="images/Italy.png" width="16" height="16" alt="Italy" /> Italy </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" name="country" id="India" value="user/login.php">
+              <img src="images/India.png" width="16" height="16" alt="India" /> India </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" name="country" id="Uk" value="region/uk.html">
+              <img src="images/uk.png" width="16" height="16" alt="UK" /> UK </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" name="country" id="Hong Kong" value="region/hongkong.html">
+              <img src="images/HongKong.png" width="16" height="16" alt="Hong Kong" /> Hong Kong </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" name="country" id="USA" value="region/usa.html">
+              <img src="images/us.png" width="16" height="16" alt="USA" /> USA </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" name="country" id="France" value="region/france.html">
+              <img src="images/France.png" width="16" height="16" alt="France" /> France </label>
+            </div>
+
+
+        </div>
+        <div class="form-group">
+          <button type="button" class="btn btn-primary" id="selectCountry">Submit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- footer -->
+  <div id="footer">
+    IA SAN MARCO 6, OCCHIEPPO SUPERIORE (Bi) ITALY<br /><div class="copyFtr">copyright &copy; 2000 Lanificio Cucinello.</div>
+     </div>
+<script src="js/jquery-1.9.1.min.js"></script>
+<script src="bootstarp/bootstrap.min.js"></script>
+<script type="text/javascript">
+	$(document).ready(function() {
+		$('#selectCountry').click(function() {
+		//$('input[type="radio"]').on('click', function() {
+		 	window.location = $('input[name=country]:checked').val();
+		});
+
+		/* $('#selectCountry').click(function() {
+			var option = $("#country").find('option:selected'),
+				url = option.data("url");
+			window.location.href = url;
+		}); */
+	});
+</script>
+</body>
+</html>
