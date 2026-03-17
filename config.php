@@ -2,11 +2,13 @@
 
 	$hostdb = 'localhost';
 
-	$namedb = 'clothlibrary';
+	//$namedb = 'cloth_librery';
 
-	$userdb = 'clothlibrary';
+	$namedb = 'cloth_library';
 
-	$passdb = 'Ravi@94277';
+	$userdb = 'root';
+
+	$passdb = '';
 
 	$conn = new PDO("mysql:host=$hostdb; dbname=$namedb", $userdb, $passdb);
 
