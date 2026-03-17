@@ -1,0 +1,4 @@
+# Sensitive config files (do not commit)
+/config.php
+/software/admin/db.php
+
