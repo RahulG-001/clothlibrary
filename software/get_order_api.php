@@ -59,7 +59,7 @@ $oid = (int)$order['order_id'];
 $itemsQuery = "SELECT oi.itemcode, oi.quantity AS order_quantity,
                p.id AS product_id, p.description, p.image, p.width, p.type, p.quantity AS db_quantity
                FROM sales_order_item oi
-               LEFT JOIN indiaData p ON p.itemcode = oi.itemcode
+               LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                WHERE oi.order_id = '".$oid."'";
 $itemsRes = mysqli_query($con, $itemsQuery);
 

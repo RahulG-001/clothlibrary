@@ -67,7 +67,7 @@ while ($row = mysqli_fetch_assoc($itemsRes)) {
     $itemcode_esc = mysqli_real_escape_string($con, $row['itemcode']);
     $orderQty = (float)$row['quantity'];
 
-    $prodRes = mysqli_query($con, "SELECT quantity FROM indiaData WHERE itemcode = '".$itemcode_esc."' LIMIT 1");
+    $prodRes = mysqli_query($con, "SELECT quantity FROM indiadata WHERE itemcode = '".$itemcode_esc."' LIMIT 1");
     if (!$prodRes || mysqli_num_rows($prodRes) === 0) {
         $deductErrors[] = $row['itemcode'].': product not found';
         continue;
@@ -84,7 +84,7 @@ while ($row = mysqli_fetch_assoc($itemsRes)) {
     $newQty = $available - $orderQty;
     $newStr = format_quantity_for_db($newQty);
     $newStrEsc = mysqli_real_escape_string($con, $newStr);
-    $up = mysqli_query($con, "UPDATE indiaData SET quantity = '".$newStrEsc."' WHERE itemcode = '".$itemcode_esc."'");
+    $up = mysqli_query($con, "UPDATE indiadata SET quantity = '".$newStrEsc."' WHERE itemcode = '".$itemcode_esc."'");
     if (!$up) {
         $deductErrors[] = $row['itemcode'].': update failed';
     }

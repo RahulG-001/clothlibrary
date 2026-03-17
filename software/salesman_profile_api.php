@@ -14,7 +14,7 @@ $salesman = salesman_require_auth($con);
 
 echo json_encode([
     'success' => true,
-    'message' => '',
+    'message' => 'Salesman fetch successfully',
     'data'    => $salesman
 ]);
 exit;
