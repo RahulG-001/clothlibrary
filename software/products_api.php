@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require('admin/db.php');
+require_once('salesman_auth.php');
 
 $response = [
     'success' => false,
@@ -20,6 +21,9 @@ $response = [
         'total_pages'=> 0
     ]
 ];
+
+// Require salesman token for this API
+$authSalesman = salesman_require_auth($con);
 
 // Optional filters
 $location = isset($_GET['location']) ? trim($_GET['location']) : '';

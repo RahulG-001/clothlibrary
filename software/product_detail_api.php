@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require('admin/db.php');
+require_once('salesman_auth.php');
 
 $response = [
     'success' => false,
@@ -15,9 +16,12 @@ $response = [
     'data'    => null
 ];
 
+// Require salesman token
+$authSalesman = salesman_require_auth($con);
+
 // Identify product by id or itemcode
 $id       = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$itemcode = isset($_GET['itemcode']) ? trim($_GET['itemcode']) : '';
+$itemcode = isset($_GET['itemcode']) ? trim((string)$_GET['itemcode']) : '';
 
 if ($id <= 0 && $itemcode === '') {
     $response['message'] = 'id or itemcode is required.';
