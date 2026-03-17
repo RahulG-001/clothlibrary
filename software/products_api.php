@@ -38,7 +38,7 @@ if ($perPage < 1) {
     $perPage = 50;
 }
 if ($perPage > 200) {
-    $perPage = 200; // hard limit to keep response fast
+    $perPage = 200;
 }
 
 $where = [];
@@ -52,18 +52,22 @@ if (!empty($where)) {
     $whereSql = ' WHERE '.implode(' AND ', $where);
 }
 
-$countQuery  = "SELECT COUNT(*) as total FROM indiaData".$whereSql;
+$countQuery  = "SELECT COUNT(*) as total FROM indiadata".$whereSql;
 $countResult = mysqli_query($con, $countQuery);
 $total       = 0;
 if ($countResult && mysqli_num_rows($countResult) === 1) {
     $countRow = mysqli_fetch_assoc($countResult);
     $total    = (int)$countRow['total'];
+} elseif (!$countResult) {
+    $response['message'] = 'DB error: '.mysqli_error($con);
+    echo json_encode($response);
+    exit;
 }
 
 $offset = ($page - 1) * $perPage;
 
 $query  = "SELECT id, itemcode, image, description, width, quantity, type, trn_date ";
-$query .= "FROM indiaData".$whereSql." ORDER BY itemcode ASC LIMIT ".$perPage." OFFSET ".$offset;
+$query .= "FROM indiadata".$whereSql." ORDER BY itemcode ASC LIMIT ".$perPage." OFFSET ".$offset;
 
 $result = mysqli_query($con, $query);
 
@@ -85,7 +89,7 @@ if ($result) {
     $response['pagination']['total']       = $total;
     $response['pagination']['total_pages'] = $total > 0 ? ceil($total / $perPage) : 0;
 } else {
-    $response['message'] = 'Error fetching products.';
+    $response['message'] = 'DB error: '.mysqli_error($con);
 }
 
 echo json_encode($response);

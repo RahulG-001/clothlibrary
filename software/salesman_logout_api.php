@@ -37,6 +37,7 @@ if ($token === '' && isset($_GET['token'])) {
 }
 
 if ($token === '') {
+    http_response_code(401);
     echo json_encode([
         'success' => false,
         'message' => 'Token required.',
@@ -48,6 +49,7 @@ if ($token === '') {
 $tokenEsc = mysqli_real_escape_string($con, $token);
 mysqli_query($con, "DELETE FROM salesman_token WHERE token = '".$tokenEsc."' LIMIT 1");
 
+http_response_code(200);
 echo json_encode([
     'success' => true,
     'message' => 'Logged out.',

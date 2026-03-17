@@ -41,7 +41,7 @@ if ($itemcode !== '') {
 $whereSql = ' WHERE '.implode(' AND ', $where).' LIMIT 1';
 
 $query  = "SELECT id, itemcode, image, description, width, quantity, type, trn_date ";
-$query .= "FROM indiaData".$whereSql;
+$query .= "FROM indiadata".$whereSql;
 
 $result = mysqli_query($con, $query);
 

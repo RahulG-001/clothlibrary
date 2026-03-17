@@ -25,6 +25,11 @@ function _salesman_get_headers() {
 }
 
 function salesman_require_auth($con) {
+    // Prevent mysqli from throwing exceptions (which causes HTTP 500 on some servers)
+    if (function_exists('mysqli_report')) {
+        mysqli_report(MYSQLI_REPORT_OFF);
+    }
+
     $token = '';
 
     $headers = _salesman_get_headers();
@@ -57,6 +62,18 @@ function salesman_require_auth($con) {
     }
 
     $tokenEsc = mysqli_real_escape_string($con, $token);
+
+    // If token table is missing on live, return JSON instead of crashing
+    $tblRes = mysqli_query($con, "SHOW TABLES LIKE 'salesman_token'");
+    if (!$tblRes || mysqli_num_rows($tblRes) === 0) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Auth table missing: salesman_token',
+            'data'    => null
+        ]);
+        exit;
+    }
+
     $sql = "SELECT t.salesman_id
             FROM salesman_token t
             WHERE t.token = '".$tokenEsc."'
@@ -67,7 +84,6 @@ function salesman_require_auth($con) {
         echo json_encode([
             'success' => false,
             'message' => 'Salesman not found',
-            'data'    => null
         ]);
         exit;
     }
@@ -75,12 +91,11 @@ function salesman_require_auth($con) {
     $row = mysqli_fetch_assoc($res);
     $sid = (int)$row['salesman_id'];
 
-    $sres = mysqli_query($con, "SELECT id, first_name, last_name, phone FROM salesman WHERE id = '".$sid."' LIMIT 1");
+    $sres = mysqli_query($con, "SELECT id, first_name, last_name, phone, password FROM salesman WHERE id = '".$sid."' LIMIT 1");
     if (!$sres || mysqli_num_rows($sres) === 0) {
         echo json_encode([
             'success' => false,
             'message' => 'Salesman not found',
-            'data'    => null
         ]);
         exit;
     }

@@ -91,7 +91,7 @@ foreach ($items as $item) {
     }
     $itemcode_esc = mysqli_real_escape_string($con, $itemcode);
     // Match product by itemcode (case-insensitive, trim) so CL001 matches cl001 or " CL001 "
-    $prod = mysqli_query($con, "SELECT itemcode, quantity FROM indiaData WHERE LOWER(TRIM(itemcode)) = LOWER(TRIM('".$itemcode_esc."')) LIMIT 1");
+    $prod = mysqli_query($con, "SELECT itemcode, quantity FROM indiadata WHERE LOWER(TRIM(itemcode)) = LOWER(TRIM('".$itemcode_esc."')) LIMIT 1");
     if (!$prod || mysqli_num_rows($prod) === 0) {
         $rejectedItems[] = ['itemcode' => $itemcode, 'quantity' => $qty, 'reason' => 'product_not_found'];
         continue;
@@ -165,7 +165,7 @@ foreach ($validItems as $v) {
 // Build response: products with available qty from indiaData (price not stored in order)
 $orderItemsQuery = "SELECT oi.itemcode, oi.quantity AS order_quantity, p.description, p.image, p.quantity AS db_quantity
                     FROM sales_order_item oi
-                    LEFT JOIN indiaData p ON p.itemcode = oi.itemcode
+                    LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                     WHERE oi.order_id = '".$order_id."'";
 $orderItemsRes = mysqli_query($con, $orderItemsQuery);
 
