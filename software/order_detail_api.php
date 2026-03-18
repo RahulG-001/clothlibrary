@@ -58,18 +58,28 @@ $host   = $_SERVER['HTTP_HOST'];
 $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 
 $items = [];
+$totalQuantity = 0;
+$totalMeters = 0;
+$primaryProductName = null;
 if ($itemsRes) {
     while ($row = mysqli_fetch_assoc($itemsRes)) {
         $img = isset($row['image']) ? $row['image'] : '';
         $q = (float)$row['order_quantity'];
         $totalM = (float)$row['order_total_meters'];
+        if ($primaryProductName === null && !empty($row['description'])) {
+            $primaryProductName = $row['description'];
+        }
+        $totalQuantity += $q;
+        $totalMeters += $totalM;
         $items[] = [
             'line_id'             => (int)$row['line_id'],
             'itemcode'            => $row['itemcode'],
             'quantity'            => $q,
+            'ordered_quantity'    => $q,
             'total_meters'        => $totalM,
             'meters'              => $q > 0 ? round($totalM / $q, 2) : 0,
             'available_quantity'  => parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : ''),
+            'product_name'        => isset($row['description']) ? $row['description'] : null,
             'description'         => isset($row['description']) ? $row['description'] : null,
             'image'               => $img,
             'image_url'           => $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '',
@@ -85,6 +95,9 @@ $response['success'] = true;
 $response['message'] = 'Order details fetched successfully.';
 $response['data'] = [
     'order_id'     => $oid,
+    'product_name' => $primaryProductName,
+    'total_quantity' => round($totalQuantity, 2),
+    'total_meters'   => round($totalMeters, 2),
     'user_id'      => $order['user_id'],
     'salesman_id'  => (int)$order['salesman_id'],
     'status'       => $order['status'],
