@@ -35,6 +35,7 @@ if ($order_id > 0) {
 if ($salesman_id > 0) {
     $where[] = "o.salesman_id = '".$salesman_id."'";
 }
+$where[] = "o.status = 'placed'";
 $whereSql = ' WHERE '.implode(' AND ', $where).' ORDER BY o.id DESC LIMIT 1';
 
 $orderQuery = "SELECT o.id AS order_id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at

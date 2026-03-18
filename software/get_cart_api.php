@@ -42,6 +42,13 @@ if (!$orderRes || mysqli_num_rows($orderRes) === 0) {
 $order = mysqli_fetch_assoc($orderRes);
 $oid   = (int)$order['order_id'];
 
+// Safety: never return non-cart orders
+if (!isset($order['status']) || $order['status'] !== 'cart') {
+    $response['message'] = 'Cart not found.';
+    echo json_encode($response);
+    exit;
+}
+
 // Items in the cart. meters column in DB = total meters for the line.
 $itemsQuery = "
     SELECT 
