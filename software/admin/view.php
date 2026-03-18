@@ -1,6 +1,59 @@
 <?php 
 require('db.php');
 include("auth.php");
+
+function downloadQrImage($qrText, $fileNamePrefix = 'stock_qrcode') {
+  $qrUrl = 'https://quickchart.io/qr?size=500&format=png&text='.rawurlencode($qrText);
+  $qrImage = @file_get_contents($qrUrl);
+
+  if ($qrImage === false) {
+    return false;
+  }
+
+  header('Content-Type: image/png');
+  header('Content-Disposition: attachment; filename="'.$fileNamePrefix.'_'.date('Ymd_His').'.png"');
+  header('Content-Length: '.strlen($qrImage));
+  echo $qrImage;
+  exit;
+}
+
+$qrPreviewItemCode = '';
+$qrPreviewItemId = 0;
+$qrPreviewImageUrl = '';
+
+if (isset($_GET['qr_itemcode'])) {
+  $itemCode = trim($_GET['qr_itemcode']);
+  if ($itemCode === '') {
+    header("Location: view.php?qr_error=1");
+    exit;
+  }
+
+  $itemCodeEsc = mysqli_real_escape_string($con, $itemCode);
+  $itemRes = mysqli_query($con, "SELECT id FROM indiaData WHERE itemcode = '".$itemCodeEsc."' LIMIT 1");
+  if (!$itemRes || mysqli_num_rows($itemRes) === 0) {
+    header("Location: view.php?qr_error=1");
+    exit;
+  }
+  $itemRow = mysqli_fetch_assoc($itemRes);
+  $itemId = (int)$itemRow['id'];
+  $qrText = 'ID: '.$itemId.', ITEMCODE: '.$itemCode;
+
+  $safeFileCode = preg_replace('/[^A-Za-z0-9_-]/', '_', $itemCode);
+  if ($safeFileCode === '') {
+    $safeFileCode = 'item';
+  }
+
+  if (isset($_GET['download']) && $_GET['download'] == '1') {
+    if (downloadQrImage($qrText, 'qrcode_'.$safeFileCode) === false) {
+      header("Location: view.php?qr_error=1");
+      exit;
+    }
+  } else {
+    $qrPreviewItemCode = $itemCode;
+    $qrPreviewItemId = $itemId;
+    $qrPreviewImageUrl = 'https://quickchart.io/qr?size=400&format=png&text='.rawurlencode($qrText);
+  }
+}
 ?>
 
 <!DOCTYPE html>
@@ -54,6 +107,25 @@ include("auth.php");
       </p>
 
     <h3>View Records</h3>
+    <?php if (isset($_GET['qr_error'])) { ?>
+      <div class="alert alert-danger">Unable to generate QR code for the selected item. Please try again.</div>
+    <?php } ?>
+    <?php if ($qrPreviewItemCode !== '') { ?>
+      <div class="panel panel-default noPrint" style="max-width:520px; margin-bottom:15px;">
+        <div class="panel-body" style="text-align:center;">
+          <h4 style="margin-top:0;">QR Code Preview</h4>
+          <p><strong>ID:</strong> <?php echo (int)$qrPreviewItemId; ?></p>
+          <p><strong>Item Code:</strong> <?php echo htmlspecialchars($qrPreviewItemCode); ?></p>
+          <img src="<?php echo htmlspecialchars($qrPreviewImageUrl); ?>" alt="QR code" class="img-responsive" style="margin:0 auto 12px auto; max-width:320px;">
+          <p style="margin-bottom:0;">
+            <a class="btn btn-sm btn-success" href="view.php?qr_itemcode=<?php echo urlencode($qrPreviewItemCode); ?>&download=1">
+              <span class="glyphicon glyphicon-download-alt"></span> Download QR
+            </a>
+            <a class="btn btn-sm btn-default" href="view.php">Back to List</a>
+          </p>
+        </div>
+      </div>
+    <?php } ?>
     
     <!-- table -->
     <div class="table-responsive yesPrint">
@@ -88,6 +160,7 @@ include("auth.php");
               &nbsp;</th>
             <th>Last<br>
               Updated</th>
+            <th>&nbsp;</th>
             <th>&nbsp;</th>
             <th>&nbsp;</th>
           </tr>
@@ -149,6 +222,11 @@ include("auth.php");
               ?>
             </td>
             <td class="noPrint"><a href="edit.php?itemcode=<?php echo $row["itemcode"]; ?>"><span class="glyphicon glyphicon-edit"></span> Edit</a></td>
+            <td class="noPrint">
+              <a class="btn btn-xs btn-success" href="view.php?qr_itemcode=<?php echo urlencode($row['itemcode']); ?>">
+                <span class="glyphicon glyphicon-qrcode"></span> QR
+              </a>
+            </td>
             
             <td><input name="checkbox[]" type="checkbox" id="checkbox[]" value="<?php echo $row['itemcode']; ?>"> </td>
 

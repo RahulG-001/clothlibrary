@@ -27,6 +27,7 @@ $authSalesman = salesman_require_auth($con);
 
 // Optional filters
 $location = isset($_GET['location']) ? trim($_GET['location']) : '';
+$search   = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Pagination params
 $page     = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -45,6 +46,10 @@ $where = [];
 if ($location !== '') {
     $locationEsc = mysqli_real_escape_string($con, $location);
     $where[] = "location = '".$locationEsc."'";
+}
+if ($search !== '') {
+    $searchEsc = mysqli_real_escape_string($con, $search);
+    $where[] = "(itemcode LIKE '%".$searchEsc."%' OR description LIKE '%".$searchEsc."%')";
 }
 
 $whereSql = '';
