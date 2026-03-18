@@ -54,11 +54,11 @@ if (!$orderRes || mysqli_num_rows($orderRes) === 0) {
 $order = mysqli_fetch_assoc($orderRes);
 $oid   = (int)$order['order_id'];
 
-// Get items + current stock string
-$itemsSql = "SELECT oi.itemcode, oi.quantity AS order_quantity,
+// meters column = total meters per line; sum per itemcode
+$itemsSql = "SELECT oi.itemcode, COALESCE(oi.meters,0) AS order_total_meters,
                     p.description, p.image, p.quantity AS db_quantity
              FROM sales_order_item oi
-             LEFT JOIN indiaData p ON p.itemcode = oi.itemcode
+             LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
              WHERE oi.order_id = '".$oid."'";
 $itemsRes = mysqli_query($con, $itemsSql);
 
@@ -66,32 +66,44 @@ $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' :
 $host   = $_SERVER['HTTP_HOST'];
 $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 
-$items = [];
-$allOk = true;
-
+$requiredByCode = [];
+$metaByCode = [];
 if ($itemsRes) {
     while ($row = mysqli_fetch_assoc($itemsRes)) {
-        $ordered   = (float)$row['order_quantity'];
-        $available = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
-        $ok        = $ordered <= $available;
-        $shortBy   = $ok ? 0.0 : round($ordered - $available, 2);
-
-        if (!$ok) {
-            $allOk = false;
+        $ic = $row['itemcode'];
+        $lineM = (float)$row['order_total_meters'];
+        if (!isset($requiredByCode[$ic])) {
+            $requiredByCode[$ic] = 0.0;
         }
-
-        $img = isset($row['image']) ? $row['image'] : '';
-        $items[] = [
-            'itemcode'            => $row['itemcode'],
-            'description'         => isset($row['description']) ? $row['description'] : null,
-            'image'               => $img,
-            'image_url'           => $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '',
-            'ordered_quantity'    => $ordered,
-            'available_quantity'  => $available,
-            'ok'                  => $ok,
-            'short_by'            => $shortBy
-        ];
+        $requiredByCode[$ic] += $lineM;
+        if (!isset($metaByCode[$ic])) {
+            $metaByCode[$ic] = [
+                'description' => isset($row['description']) ? $row['description'] : null,
+                'image' => isset($row['image']) ? $row['image'] : '',
+                'available' => parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '')
+            ];
+        }
     }
+}
+
+$items = [];
+$allOk = true;
+foreach ($requiredByCode as $ic => $totalRequired) {
+    $available = $metaByCode[$ic]['available'];
+    $ok = $totalRequired <= $available;
+    $shortBy = $ok ? 0.0 : round($totalRequired - $available, 2);
+    if (!$ok) { $allOk = false; }
+    $img = $metaByCode[$ic]['image'];
+    $items[] = [
+        'itemcode' => $ic,
+        'description' => $metaByCode[$ic]['description'],
+        'image' => $img,
+        'image_url' => $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '',
+        'ordered_total_meters' => $totalRequired,
+        'available_quantity' => $available,
+        'ok' => $ok,
+        'short_by' => $shortBy
+    ];
 }
 
 $response['success'] = $allOk;

@@ -52,41 +52,48 @@ if ($order['status'] !== 'cart') {
     exit;
 }
 
-// Get order items
-$itemsRes = mysqli_query($con, "SELECT oi.id, oi.itemcode, oi.quantity FROM sales_order_item oi WHERE oi.order_id = '".$order_id."'");
+// meters column = total meters per line; sum per itemcode
+$itemsRes = mysqli_query($con, "SELECT oi.itemcode, COALESCE(oi.meters, 0) AS total_meters FROM sales_order_item oi WHERE oi.order_id = '".$order_id."'");
 if (!$itemsRes || mysqli_num_rows($itemsRes) === 0) {
     $response['message'] = 'Order has no items.';
     echo json_encode($response);
     exit;
 }
 
+$deductByItemcode = [];
+while ($row = mysqli_fetch_assoc($itemsRes)) {
+    $ic = trim((string)$row['itemcode']);
+    $lineTotal = (float)$row['total_meters'];
+    if (!isset($deductByItemcode[$ic])) {
+        $deductByItemcode[$ic] = 0.0;
+    }
+    $deductByItemcode[$ic] += $lineTotal;
+}
+
 $deductErrors = [];
 mysqli_begin_transaction($con);
 
-while ($row = mysqli_fetch_assoc($itemsRes)) {
-    $itemcode_esc = mysqli_real_escape_string($con, $row['itemcode']);
-    $orderQty = (float)$row['quantity'];
-
+foreach ($deductByItemcode as $itemcode => $totalDeductMeters) {
+    $itemcode_esc = mysqli_real_escape_string($con, $itemcode);
     $prodRes = mysqli_query($con, "SELECT quantity FROM indiadata WHERE itemcode = '".$itemcode_esc."' LIMIT 1");
     if (!$prodRes || mysqli_num_rows($prodRes) === 0) {
-        $deductErrors[] = $row['itemcode'].': product not found';
+        $deductErrors[] = $itemcode.': product not found';
         continue;
     }
     $prod = mysqli_fetch_assoc($prodRes);
-    $currentStr = isset($prod['quantity']) ? $prod['quantity'] : '';
-    $available = parse_quantity_to_number($currentStr);
+    $available = parse_quantity_to_number(isset($prod['quantity']) ? $prod['quantity'] : '');
 
-    if ($orderQty > $available) {
-        $deductErrors[] = $row['itemcode'].": ordered ".$orderQty." exceeds available ".$available;
+    if ($totalDeductMeters > $available) {
+        $deductErrors[] = $itemcode.": need ".$totalDeductMeters." m, available ".$available;
         continue;
     }
 
-    $newQty = $available - $orderQty;
+    $newQty = $available - $totalDeductMeters;
     $newStr = format_quantity_for_db($newQty);
     $newStrEsc = mysqli_real_escape_string($con, $newStr);
     $up = mysqli_query($con, "UPDATE indiadata SET quantity = '".$newStrEsc."' WHERE itemcode = '".$itemcode_esc."'");
     if (!$up) {
-        $deductErrors[] = $row['itemcode'].': update failed';
+        $deductErrors[] = $itemcode.': update failed';
     }
 }
 

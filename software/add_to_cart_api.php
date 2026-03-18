@@ -39,7 +39,7 @@ $rawItems    = isset($input['items']) ? $input['items'] : null;
 
 // Normalize items: accept single object {"itemcode":"X","quantity":1} or array of same
 if (!is_array($rawItems) || empty($rawItems)) {
-    $response['message'] = 'items required (object or array, e.g. {"itemcode":"CL001","quantity":2}).';
+    $response['message'] = 'items required. Each: itemcode, quantity, meters (meters optional, default 1). Example: {"itemcode":"CL001","quantity":2,"meters":5}';
     echo json_encode($response);
     exit;
 }
@@ -85,8 +85,12 @@ foreach ($items as $item) {
     }
     $itemcode = isset($item['itemcode']) ? trim((string)$item['itemcode']) : '';
     $qty      = isset($item['quantity']) ? (float)$item['quantity'] : 0;
+    $meters   = isset($item['meters']) ? (float)$item['meters'] : 0;
+    if ($meters <= 0) {
+        $meters = 1.0;
+    }
     if ($itemcode === '' || $qty <= 0) {
-        $rejectedItems[] = ['itemcode' => $itemcode, 'quantity' => $qty, 'reason' => 'missing_itemcode_or_quantity'];
+        $rejectedItems[] = ['itemcode' => $itemcode, 'quantity' => $qty, 'meters' => $meters, 'reason' => 'missing_itemcode_or_quantity'];
         continue;
     }
     $itemcode_esc = mysqli_real_escape_string($con, $itemcode);
@@ -103,6 +107,7 @@ foreach ($items as $item) {
         'itemcode' => $db_itemcode,
         'itemcode_esc' => mysqli_real_escape_string($con, $db_itemcode),
         'quantity' => $qty,
+        'meters' => $meters,
         'available' => $available
     ];
 }
@@ -136,61 +141,113 @@ if ($order_id === null) {
     exit;
 }
 
+$metersColCheck = mysqli_query($con, "SHOW COLUMNS FROM sales_order_item LIKE 'meters'");
+$hasMetersColumn = $metersColCheck && mysqli_num_rows($metersColCheck) > 0;
+
+// DB meters column = total meters (quantity × meters per piece)
 $added = [];
 $failedItems = [];
 foreach ($validItems as $v) {
     $itemcode_esc = $v['itemcode_esc'];
     $qty = $v['quantity'];
+    $metersPerPiece = $v['meters'];
+    $totalMeters = round($qty * $metersPerPiece, 2);
+    $totalMetersStr = mysqli_real_escape_string($con, number_format($totalMeters, 2, '.', ''));
 
-    $exist = mysqli_query($con, "SELECT id, quantity FROM sales_order_item WHERE order_id = '".$order_id."' AND itemcode = '".$itemcode_esc."' LIMIT 1");
+    $exist = mysqli_query($con, "SELECT id, quantity, COALESCE(meters,0) AS total_m FROM sales_order_item WHERE order_id = '".$order_id."' AND itemcode = '".$itemcode_esc."' LIMIT 1");
+
     if ($exist && mysqli_num_rows($exist) === 1) {
         $ex = mysqli_fetch_assoc($exist);
         $newQty = (float)$ex['quantity'] + $qty;
-        $ok = mysqli_query($con, "UPDATE sales_order_item SET quantity = '".mysqli_real_escape_string($con, $newQty)."' WHERE id = '".(int)$ex['id']."'");
-        if ($ok) {
-            $added[] = ['itemcode' => $v['itemcode'], 'quantity' => $newQty];
+        $newTotalM = (float)$ex['total_m'] + $totalMeters;
+        $newTotalMStr = mysqli_real_escape_string($con, number_format($newTotalM, 2, '.', ''));
+        if ($hasMetersColumn) {
+            $ok = mysqli_query($con, "UPDATE sales_order_item SET quantity = '".mysqli_real_escape_string($con, $newQty)."', meters = '".$newTotalMStr."' WHERE id = '".(int)$ex['id']."'");
         } else {
-            $failedItems[] = ['itemcode' => $v['itemcode'], 'quantity' => $newQty, 'reason' => 'update_failed'];
+            $ok = mysqli_query($con, "UPDATE sales_order_item SET quantity = '".mysqli_real_escape_string($con, $newQty)."' WHERE id = '".(int)$ex['id']."'");
+        }
+        if ($ok) {
+            $added[] = ['itemcode' => $v['itemcode'], 'quantity' => $newQty, 'meters' => $metersPerPiece, 'total_meters' => $newTotalM];
+        } else {
+            $failedItems[] = ['itemcode' => $v['itemcode'], 'reason' => 'update_failed', 'db_error' => mysqli_error($con)];
         }
     } else {
-        $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".mysqli_real_escape_string($con, $qty)."', NULL)";
-        if (mysqli_query($con, $insItem)) {
-            $added[] = ['itemcode' => $v['itemcode'], 'quantity' => $qty];
+        if ($hasMetersColumn) {
+            $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".mysqli_real_escape_string($con, $qty)."', '".$totalMetersStr."', NULL)";
         } else {
-            $failedItems[] = ['itemcode' => $v['itemcode'], 'quantity' => $qty, 'reason' => 'insert_failed'];
+            $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".mysqli_real_escape_string($con, $qty)."', NULL)";
+        }
+        if (mysqli_query($con, $insItem)) {
+            $added[] = ['itemcode' => $v['itemcode'], 'quantity' => $qty, 'meters' => $metersPerPiece, 'total_meters' => $totalMeters];
+        } else {
+            $failedItems[] = ['itemcode' => $v['itemcode'], 'reason' => 'insert_failed', 'db_error' => mysqli_error($con)];
         }
     }
 }
 
-// Build response: products with available qty from indiaData (price not stored in order)
-$orderItemsQuery = "SELECT oi.itemcode, oi.quantity AS order_quantity, p.description, p.image, p.quantity AS db_quantity
+// Build response: products with available qty (fallback if `meters` column missing)
+$orderItemsQuery = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity AS order_quantity, oi.meters AS order_meters, p.description, p.image, p.quantity AS db_quantity
                     FROM sales_order_item oi
                     LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                     WHERE oi.order_id = '".$order_id."'";
 $orderItemsRes = mysqli_query($con, $orderItemsQuery);
+if (!$orderItemsRes) {
+    $orderItemsQuery = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity AS order_quantity, 1 AS order_meters, p.description, p.image, p.quantity AS db_quantity
+                        FROM sales_order_item oi
+                        LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
+                        WHERE oi.order_id = '".$order_id."'";
+    $orderItemsRes = mysqli_query($con, $orderItemsQuery);
+}
 
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host   = $_SERVER['HTTP_HOST'];
 $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 
 $products = [];
-while ($row = mysqli_fetch_assoc($orderItemsRes)) {
-    $img = isset($row['image']) ? $row['image'] : '';
-    $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
-    $row['quantity'] = (float)$row['order_quantity'];
-    $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
-    unset($row['order_quantity'], $row['db_quantity']);
-    $products[] = $row;
+if (!$orderItemsRes) {
+    $response['message'] = count($added) > 0 ? 'Items added but list failed: '.mysqli_error($con) : mysqli_error($con);
+} else {
+    while ($row = mysqli_fetch_assoc($orderItemsRes)) {
+        $img = isset($row['image']) ? $row['image'] : '';
+        $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
+        $q = (float)$row['order_quantity'];
+        $totalM = isset($row['order_meters']) ? (float)$row['order_meters'] : 0.0;
+        $row['quantity'] = $q;
+        $row['total_meters'] = $totalM;
+        $row['meters'] = $q > 0 ? round($totalM / $q, 2) : 0;
+        $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
+        unset($row['order_quantity'], $row['order_meters'], $row['db_quantity']);
+        $products[] = $row;
+    }
 }
 
-$response['success'] = count($added) > 0;
-$response['message'] = count($added) > 0 ? 'Items added to cart.' : 'No items were added to cart.';
+$addedCount = count($added);
+$productCount = count($products);
+if (!$orderItemsRes && $addedCount > 0) {
+    $response['success'] = true;
+    $response['message'] = 'Items added but cart list failed: '.mysqli_error($con);
+} elseif ($addedCount > 0) {
+    $response['success'] = true;
+    $response['message'] = 'Items added to cart.';
+} elseif ($productCount > 0) {
+    $response['success'] = true;
+    $response['message'] = count($rejectedItems) > 0 || count($failedItems) > 0
+        ? 'Cart loaded. This request did not add new lines (see rejected_items / failed_items).'
+        : 'Cart loaded.';
+} else {
+    $response['success'] = false;
+    $response['message'] = 'No items in cart and nothing was added.';
+}
+
 $response['data'] = [
-    'order_id'     => $order_id,
-    'user_id'      => $user_id_stored,
-    'salesman_id'  => $salesman_id,
-    'status'       => 'cart',
-    'products'     => $products
+    'order_id'            => $order_id,
+    'user_id'             => $user_id_stored,
+    'salesman_id'         => $salesman_id,
+    'status'              => 'cart',
+    'added_this_request'  => $added,
+    'rejected_items'      => $rejectedItems,
+    'failed_items'        => $failedItems,
+    'products'            => $products
 ];
 
 echo json_encode($response);

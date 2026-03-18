@@ -46,7 +46,7 @@ $order = mysqli_fetch_assoc($orderRes);
 $oid = (int)$order['order_id'];
 
 // Items + product details (no price)
-$itemsQuery = "SELECT oi.itemcode, oi.quantity AS order_quantity,
+$itemsQuery = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity AS order_quantity, COALESCE(oi.meters,0) AS order_total_meters,
                       p.description, p.image, p.quantity AS db_quantity, p.width, p.type, p.trn_date
                FROM sales_order_item oi
                LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
@@ -61,9 +61,14 @@ $items = [];
 if ($itemsRes) {
     while ($row = mysqli_fetch_assoc($itemsRes)) {
         $img = isset($row['image']) ? $row['image'] : '';
+        $q = (float)$row['order_quantity'];
+        $totalM = (float)$row['order_total_meters'];
         $items[] = [
+            'line_id'             => (int)$row['line_id'],
             'itemcode'            => $row['itemcode'],
-            'quantity'            => (float)$row['order_quantity'],
+            'quantity'            => $q,
+            'total_meters'        => $totalM,
+            'meters'              => $q > 0 ? round($totalM / $q, 2) : 0,
             'available_quantity'  => parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : ''),
             'description'         => isset($row['description']) ? $row['description'] : null,
             'image'               => $img,
