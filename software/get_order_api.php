@@ -56,7 +56,7 @@ $order = mysqli_fetch_assoc($orderRes);
 $oid = (int)$order['order_id'];
 
 // Get items with product details; price and available qty from product (price not stored in order)
-$itemsQuery = "SELECT oi.itemcode, oi.quantity AS order_quantity,
+$itemsQuery = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity AS order_quantity, COALESCE(oi.meters,0) AS order_total_meters,
                p.id AS product_id, p.description, p.image, p.width, p.type, p.quantity AS db_quantity
                FROM sales_order_item oi
                LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
@@ -71,10 +71,14 @@ $products = [];
 while ($row = mysqli_fetch_assoc($itemsRes)) {
     $img = isset($row['image']) ? $row['image'] : '';
     $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
-    $row['quantity'] = (float)$row['order_quantity'];
+    $q = (float)$row['order_quantity'];
+    $totalM = (float)$row['order_total_meters'];
+    $row['quantity'] = $q;
+    $row['total_meters'] = $totalM;
+    $row['meters'] = $q > 0 ? round($totalM / $q, 2) : 0;
     $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
     $row['price'] = isset($row['price']) ? $row['price'] : null;
-    unset($row['order_quantity'], $row['db_quantity']);
+    unset($row['order_quantity'], $row['order_total_meters'], $row['db_quantity']);
     $products[] = $row;
 }
 

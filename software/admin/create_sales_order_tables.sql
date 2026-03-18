@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `sales_order_item` (
   `order_id` INT(11) NOT NULL,
   `itemcode` VARCHAR(50) NOT NULL COMMENT 'indiaData.itemcode',
   `quantity` DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+  `meters` DECIMAL(10,2) NOT NULL DEFAULT 1.00 COMMENT 'Meters per line; total deduct = quantity * meters',
   `price` DECIMAL(12,2) NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `order_id` (`order_id`),
