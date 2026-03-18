@@ -20,11 +20,10 @@ $response = [
 $authSalesman = salesman_require_auth($con);
 
 $order_id   = isset($_GET['order_id']) ? (int)$_GET['order_id'] : 0;
-$user_id    = isset($_GET['user_id']) ? trim($_GET['user_id']) : '';
 $salesman_id = (int)$authSalesman['id'];
 
-if ($order_id <= 0 && ($user_id === '' || $salesman_id <= 0)) {
-    $response['message'] = 'Provide order_id OR both user_id and salesman_id.';
+if ($order_id <= 0 && $salesman_id <= 0) {
+    $response['message'] = 'Provide order_id OR be authenticated as a salesman.';
     echo json_encode($response);
     exit;
 }
@@ -32,10 +31,6 @@ if ($order_id <= 0 && ($user_id === '' || $salesman_id <= 0)) {
 $where = [];
 if ($order_id > 0) {
     $where[] = "o.id = '".$order_id."'";
-}
-if ($user_id !== '') {
-    $user_id_esc = mysqli_real_escape_string($con, $user_id);
-    $where[] = "o.user_id = '".$user_id_esc."'";
 }
 if ($salesman_id > 0) {
     $where[] = "o.salesman_id = '".$salesman_id."'";

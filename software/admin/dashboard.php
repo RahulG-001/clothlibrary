@@ -47,6 +47,9 @@ include("auth.php"); //include auth.php file on all secure pages
           <p><a href="insert.php">
             <button type="button" class="btn btn-primary">Insert New Item</button>
             </a></p>
+          <p><a href="catalog_index.php">
+            <button type="button" class="btn btn-primary">Catalog</button>
+            </a></p>
             <p>
             <a href="exportcsv.php">
             <button type="button" class="btn btn-primary"><span class="glyphicon glyphicon-download-alt"></span> Export Data</button>
