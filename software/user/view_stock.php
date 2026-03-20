@@ -125,7 +125,7 @@ include("auth.php");
             <td><?php echo $row["width"]; ?></td>
             <td><?php echo $row["quantity"]; ?></td>
             <td><?php echo $row["type"]; ?></td>
-            <td><?php echo $row["price"]; ?></td>
+            <td></td>
             <td>
               <?php 
                   $extDate = $row["trn_date"];
