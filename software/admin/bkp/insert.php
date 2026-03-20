@@ -20,9 +20,9 @@ if(isset($_POST['new']) && $_POST['new']==1) {
 	$country = mysqli_real_escape_string($con,$_REQUEST['country']);
 
 
-  $check=mysqli_query($con,"select * from indiaData where itemcode='$itemcode'") or die(mysql_error());
+  $check=mysqli_query($con,"select * from indiadata where itemcode='$itemcode'") or die(mysql_error());
 
-  //$check="SELECT * FROM indiaData where itemcode='$itemcode'";
+  //$check="SELECT * FROM indiadata where itemcode='$itemcode'";
   $duplicate= mysqli_num_rows($check);
 
   // incase itemid is present
@@ -31,7 +31,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
   } 
   // incase itemid is new
   else {
-  	$ins_query="insert into indiaData(`trn_date`, `itemcode`,`description`,`width`,`quantity`,`country`)values('$trn_date', '$itemcode','$description','$width','$quantity','$country')";
+  	$ins_query="insert into indiadata(`trn_date`, `itemcode`,`description`,`width`,`quantity`,`country`)values('$trn_date', '$itemcode','$description','$width','$quantity','$country')";
   	
   	mysqli_query($con,$ins_query);
   	

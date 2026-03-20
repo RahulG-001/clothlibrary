@@ -95,7 +95,7 @@ include("auth.php");
 
           for($i=0;$i<count($_POST['checkbox']);$i++){
           $del_id=$_POST['checkbox'][$i];
-          $sql = "DELETE FROM re_indiaData WHERE itemcode='$del_id'";
+          $sql = "DELETE FROM re_indiadata WHERE itemcode='$del_id'";
           //$sql = "DELETE FROM $tbl_name WHERE id='$del_id'";
           $result = mysql_query($sql);
           }
@@ -110,7 +110,7 @@ include("auth.php");
         // delete logic ends
 
 			$count=1;
-			$sel_query="SELECT * FROM re_indiaData";
+			$sel_query="SELECT * FROM re_indiadata";
 			$result = mysql_query($sel_query);
 
 			while($row = mysql_fetch_assoc($result)) {?>

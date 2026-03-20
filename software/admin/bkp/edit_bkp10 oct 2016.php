@@ -2,7 +2,7 @@
 require('db.php');
 include("auth.php");
 $itemcode=$_REQUEST['itemcode'];
-$query = "SELECT * from indiaData where itemcode='".$itemcode."'"; 
+$query = "SELECT * from indiadata where itemcode='".$itemcode."'"; 
 $result = mysql_query($query) or die ( mysql_error());
 $row = mysql_fetch_assoc($result);
 ?>
@@ -61,7 +61,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
 	$quantity = $_REQUEST['quantity'];
 	$country = $_REQUEST['country'];
 	
-	$update="update indiaData set description='".$description."', width='".$width."', quantity='".$quantity."', country='".$country."' where itemcode='".$itemcode."'";
+	$update="update indiadata set description='".$description."', width='".$width."', quantity='".$quantity."', country='".$country."' where itemcode='".$itemcode."'";
 	
 	mysql_query($update) or die(mysql_error());
 	

@@ -103,7 +103,7 @@ include("auth.php");
       }
 
 			$count=1;
-			$sel_query="SELECT * FROM indiaData";
+			$sel_query="SELECT * FROM indiadata";
 			$result1 = mysqli_query($con,$sel_query);
 			while($row = mysqli_fetch_assoc($result1)) { ?>
           <tr>

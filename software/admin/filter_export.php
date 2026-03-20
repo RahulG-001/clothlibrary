@@ -22,7 +22,7 @@ if(isset($_GET['filterexport'])) {
         }
 
         // search the database
-        $query = mysqli_query($con,"SELECT * FROM indiaData WHERE itemcode LIKE '%$find%'");
+        $query = mysqli_query($con,"SELECT * FROM indiadata WHERE itemcode LIKE '%$find%'");
 
         //This counts the number or results - and if there wasn't any it gives them a     little     message explaining that
         $anymatches = mysqli_num_rows($query);

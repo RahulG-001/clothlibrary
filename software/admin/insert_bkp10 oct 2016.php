@@ -14,9 +14,9 @@ if(isset($_POST['new']) && $_POST['new']==1) {
 	$country = $_REQUEST['country'];
 
 
-  $check=mysql_query("select * from indiaData where itemcode='$itemcode'") or die(mysql_error());
+  $check=mysql_query("select * from indiadata where itemcode='$itemcode'") or die(mysql_error());
 
-  //$check="SELECT * FROM indiaData where itemcode='$itemcode'";
+  //$check="SELECT * FROM indiadata where itemcode='$itemcode'";
   $duplicate= mysql_num_rows($check);
 
   // incase itemid is present
@@ -25,7 +25,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
   } 
   // incase itemid is new
   else {
-  	$ins_query="insert into indiaData(`trn_date`, `itemcode`,`description`,`width`,`quantity`,`country`)values('$trn_date', '$itemcode','$description','$width','$quantity','$country')";
+  	$ins_query="insert into indiadata(`trn_date`, `itemcode`,`description`,`width`,`quantity`,`country`)values('$trn_date', '$itemcode','$description','$width','$quantity','$country')";
   	
   	mysql_query($ins_query) or die(mysql_error());
   	

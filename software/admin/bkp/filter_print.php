@@ -53,7 +53,7 @@ include("auth.php");
        // filtering
 
       // search the database
-      $iname = mysqli_query($con,"SELECT * FROM indiaData WHERE itemcode LIKE '%$find%'");
+      $iname = mysqli_query($con,"SELECT * FROM indiadata WHERE itemcode LIKE '%$find%'");
       //This counts the number or results - and if there wasn't any it gives them a     little     message explaining that
       $anymatches = mysqli_num_rows($iname);
           if ($anymatches == 0)

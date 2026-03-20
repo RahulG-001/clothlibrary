@@ -101,8 +101,8 @@ include("auth.php");
 		   $find = trim ($find);
 		   
 			// search the database
-			$iname = mysql_query("SELECT * FROM re_indiaData WHERE itemcode LIKE '$find%'")
-			//$iname = mysql_query("SELECT * FROM indiaData WHERE itemcode IN('$find')")
+			$iname = mysql_query("SELECT * FROM re_indiadata WHERE itemcode LIKE '$find%'")
+			//$iname = mysql_query("SELECT * FROM indiadata WHERE itemcode IN('$find')")
 			or die(mysql_error());
 			
 			//And we remind them what they searched for
@@ -147,7 +147,7 @@ include("auth.php");
 			// show all records
 			else {
 			$count=1;
-			$sel_query="SELECT * FROM re_indiaData";
+			$sel_query="SELECT * FROM re_indiadata";
 			$result = mysql_query($sel_query);
 			while($row = mysql_fetch_assoc($result)) { ?>
           <tr>

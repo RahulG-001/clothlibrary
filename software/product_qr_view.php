@@ -5,6 +5,27 @@ require_once(__DIR__.'/quantity_parser.php');
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $itemcode = isset($_GET['itemcode']) ? trim((string)$_GET['itemcode']) : '';
+$ref = isset($_GET['ref']) ? trim((string)$_GET['ref']) : '';
+
+if ($ref !== '' && ($id <= 0 || $itemcode === '')) {
+    $ref64 = strtr($ref, '-_', '+/');
+    $padding = strlen($ref64) % 4;
+    if ($padding > 0) {
+        $ref64 .= str_repeat('=', 4 - $padding);
+    }
+    $decoded = base64_decode($ref64, true);
+    if ($decoded !== false) {
+        $json = json_decode($decoded, true);
+        if (is_array($json)) {
+            if ($id <= 0 && isset($json['id'])) {
+                $id = (int)$json['id'];
+            }
+            if ($itemcode === '' && isset($json['itemcode'])) {
+                $itemcode = trim((string)$json['itemcode']);
+            }
+        }
+    }
+}
 
 $indiaTable = get_india_data_table($con);
 $product = null;
@@ -13,22 +34,22 @@ $error = '';
 if ($indiaTable === null) {
     $error = 'Product table not found.';
 } else {
-    $where = [];
     if ($id > 0) {
-        $where[] = "id = '".intval($id)."'";
-    }
-    if ($itemcode !== '') {
-        $itemcodeEsc = mysqli_real_escape_string($con, $itemcode);
-        $where[] = "itemcode = '".$itemcodeEsc."'";
-    }
-
-    if (count($where) === 0) {
-        $error = 'Invalid product link.';
-    } else {
         $query = "SELECT id, itemcode, image, description, width, quantity, type, trn_date
                   FROM ".$indiaTable."
-                  WHERE ".implode(' AND ', $where)."
+                  WHERE id = '".intval($id)."'
                   LIMIT 1";
+    } elseif ($itemcode !== '') {
+        $itemcodeEsc = mysqli_real_escape_string($con, $itemcode);
+        $query = "SELECT id, itemcode, image, description, width, quantity, type, trn_date
+                  FROM ".$indiaTable."
+                  WHERE LOWER(TRIM(itemcode)) = LOWER(TRIM('".$itemcodeEsc."'))
+                  LIMIT 1";
+    } else {
+        $query = null;
+        $error = 'Invalid product link.';
+    }
+    if ($error === '' && isset($query)) {
         $res = mysqli_query($con, $query);
         if ($res && mysqli_num_rows($res) === 1) {
             $product = mysqli_fetch_assoc($res);

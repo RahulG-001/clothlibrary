@@ -13,7 +13,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
 	$quantity = $_REQUEST['quantity'];
 	$country = $_REQUEST['country'];
 
-	$ins_query="insert into indiaData(`trn_date`, `itemcode`,`description`,`width`,`quantity`,`country`)values('$trn_date', '$itemcode','$description','$width','$quantity','$country')";
+	$ins_query="insert into indiadata(`trn_date`, `itemcode`,`description`,`width`,`quantity`,`country`)values('$trn_date', '$itemcode','$description','$width','$quantity','$country')";
 	
 	mysql_query($ins_query) or die(mysql_error());
 	

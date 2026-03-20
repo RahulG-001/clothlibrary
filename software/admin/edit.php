@@ -2,7 +2,7 @@
 require('db.php');
 include("auth.php");
 $itemcode=$_REQUEST['itemcode'];
-$query = "SELECT * from indiaData where itemcode='".$itemcode."'"; 
+$query = "SELECT * from indiadata where itemcode='".$itemcode."'"; 
 $result = mysqli_query($con,$query);
 $row = mysqli_fetch_assoc($result);
 ?>
@@ -67,7 +67,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
   $comments =$_REQUEST['comments'];
 	$country = $_REQUEST['country'];
 	
-	$update="update indiaData set trn_date='".$trn_date."', description='".$description."', stockinward='".$stockinward."', width='".$width."', quantity='".$quantity."', type='".$type."', soldtoclients='".$soldtoclients."', comments='".$comments."', country='".$country."' where itemcode='".$itemcode."'";
+	$update="update indiadata set trn_date='".$trn_date."', description='".$description."', stockinward='".$stockinward."', width='".$width."', quantity='".$quantity."', type='".$type."', soldtoclients='".$soldtoclients."', comments='".$comments."', country='".$country."' where itemcode='".$itemcode."'";
 	
 	mysqli_query($con,$update);
 	
