@@ -75,7 +75,7 @@ if (!$smCheck || mysqli_num_rows($smCheck) === 0) {
     exit;
 }
 
-// Validate items: add every item that exists in indiaData (case-insensitive match, trim spaces)
+// Validate items: add every item that exists in indiadata (case-insensitive match, trim spaces)
 $validItems = [];
 $rejectedItems = [];
 foreach ($items as $item) {

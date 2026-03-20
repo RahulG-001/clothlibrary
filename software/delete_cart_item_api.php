@@ -59,8 +59,14 @@ if (!$orderRes || mysqli_num_rows($orderRes) === 0) {
     exit;
 }
 $order = mysqli_fetch_assoc($orderRes);
-if (!isset($order['status']) || $order['status'] !== 'cart') {
+// Normalize status because DB values sometimes contain different casing/whitespace.
+$orderStatus = isset($order['status']) ? strtolower(trim((string)$order['status'])) : '';
+if ($orderStatus !== 'cart') {
     $response['message'] = 'Order already placed or invalid status.';
+    $response['data'] = [
+        'order_id' => (int)$order_id,
+        'actual_status' => isset($order['status']) ? (string)$order['status'] : null,
+    ];
     echo json_encode($response);
     exit;
 }

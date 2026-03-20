@@ -64,7 +64,7 @@ include("auth.php");
         <tbody>
           <?php
 			$count=1;
-			$sel_query="SELECT * FROM re_indiaData";
+			$sel_query="SELECT * FROM re_indiadata";
 			$result = mysql_query($sel_query);
 			while($row = mysql_fetch_assoc($result)) { ?>
           

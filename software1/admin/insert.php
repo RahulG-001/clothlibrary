@@ -17,7 +17,7 @@ if(isset($_POST['new']) && $_POST['new']==1){
 	$country = $_REQUEST['country'];
     $check=mysqli_query($con,"select * from re_indiadata where itemcode='$itemcode'");
 
-  //$check="SELECT * FROM indiaData where itemcode='$itemcode'";
+  //$check="SELECT * FROM indiadata where itemcode='$itemcode'";
   $duplicate= mysqli_num_rows($check);
 
   // incase itemid is present

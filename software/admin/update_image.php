@@ -2,7 +2,7 @@
 require('db.php');
 include("auth.php");
 $itemcode=$_REQUEST['itemcode'];
-$query = "SELECT * from indiaData where itemcode='".$itemcode."'"; 
+$query = "SELECT * from indiadata where itemcode='".$itemcode."'"; 
 $result = mysqli_query($con,$query);
 $row = mysqli_fetch_assoc($result);
 ?>
@@ -95,7 +95,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
         $status = '<div class="alert alert-danger" role="alert"><span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"> </span><span class="sr-only">Error:</span> <strong>Sorry. Uploaded image was not a correct image file</strong></div>';
         echo '<div class="alert alert-danger" role="alert"><span class="glyphicon glyphicon-ok"></span> '.$status.'</div>';
     } else {
-        $update="update indiaData set image='".$image."' where itemcode='".$itemcode."'";
+        $update="update indiadata set image='".$image."' where itemcode='".$itemcode."'";
         mysqli_query($con,$update);
 
         if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $target_file)) {

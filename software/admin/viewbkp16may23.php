@@ -91,7 +91,7 @@ include("auth.php");
 
           for($i=0;$i<count($_POST['checkbox']);$i++){
           $del_id=$_POST['checkbox'][$i];
-          $sql = "DELETE FROM indiaData WHERE itemcode='$del_id'";
+          $sql = "DELETE FROM indiadata WHERE itemcode='$del_id'";
           $result = mysqli_query($con,$sql);
           }
           // if successful redirect to delete_multiple.php
@@ -118,7 +118,7 @@ include("auth.php");
         
 
 			$count=1;
-			$sel_query="SELECT * FROM indiaData";
+			$sel_query="SELECT * FROM indiadata";
 			$result = mysqli_query($con,$sel_query);
 
 			while($row = mysqli_fetch_assoc($result)) { ?>

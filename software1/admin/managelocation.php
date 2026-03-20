@@ -9,7 +9,7 @@
 		$name=$_REQUEST['name'];
 		$check=mysqli_query($con,"select * from re_location where name='$name'");
 
-		//$check="SELECT * FROM indiaData where itemcode='$itemcode'";
+		//$check="SELECT * FROM indiadata where itemcode='$itemcode'";
 		$duplicate= mysqli_num_rows($check);
 
 		// incase itemid is present	

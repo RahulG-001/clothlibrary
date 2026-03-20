@@ -20,9 +20,9 @@ if(isset($_POST['new']) && $_POST['new']==1) {
   $comments = mysqli_real_escape_string($con,$_REQUEST['comments']);
 	$country = mysqli_real_escape_string($con,$_REQUEST['country']);
 
-  $check=mysqli_query($con,"select * from indiaData where itemcode='$itemcode'") or die(mysql_error());
+  $check=mysqli_query($con,"select * from indiadata where itemcode='$itemcode'") or die(mysql_error());
 
-  //$check="SELECT * FROM indiaData where itemcode='$itemcode'";
+  //$check="SELECT * FROM indiadata where itemcode='$itemcode'";
   $duplicate= mysqli_num_rows($check);
   
   $uploadOk = 1;
@@ -37,7 +37,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
       if ($_FILES['fileToUpload']['error'] == 4 || ($_FILES['fileToUpload']['size'] == 0 && $_FILES['fileToUpload']['error'] == 0))
       {
         $image = 'placeholder.jpg';
-        $ins_query="insert into indiaData(`trn_date`,`stockinward`,`image`,`itemcode`,`description`,`width`,`quantity`,`type`,`soldtoclients`,`comments`,`country`)values('$trn_date','$stockinward','$image','$itemcode','$description','$width','$quantity','$type','$soldtoclients','$comments','$country')";
+        $ins_query="insert into indiadata(`trn_date`,`stockinward`,`image`,`itemcode`,`description`,`width`,`quantity`,`type`,`soldtoclients`,`comments`,`country`)values('$trn_date','$stockinward','$image','$itemcode','$description','$width','$quantity','$type','$soldtoclients','$comments','$country')";
         mysqli_query($con,$ins_query);
         $status = "<div class='alert alert-success' role='alert'><span class='glyphicon glyphicon-ok'></span> New Item added Successfully. <a href='view.php'>View Inserted Record</a></div>";
       } else {
@@ -75,7 +75,7 @@ if(isset($_POST['new']) && $_POST['new']==1) {
           if ($uploadOk == 0) {
             $status = '<div class="alert alert-danger" role="alert"><span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"> </span><span class="sr-only">Error:</span> <strong>Sorry. Uploaded image was not a correct image file</strong></div>';
           } else {
-            $ins_query="insert into indiaData(`trn_date`,`stockinward`,`image`,`itemcode`,`description`,`width`,`quantity`,`type`,`soldtoclients`,`comments`,`country`)values('$trn_date','$stockinward','$image','$itemcode','$description','$width','$quantity','$type','$soldtoclients','$comments','$country')";
+            $ins_query="insert into indiadata(`trn_date`,`stockinward`,`image`,`itemcode`,`description`,`width`,`quantity`,`type`,`soldtoclients`,`comments`,`country`)values('$trn_date','$stockinward','$image','$itemcode','$description','$width','$quantity','$type','$soldtoclients','$comments','$country')";
 
             if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $target_file)) {
               // echo "The file ". htmlspecialchars( basename( $_FILES["fileToUpload"]["name"])). " has been uploaded.";

@@ -62,7 +62,7 @@ include("auth.php");
             $export_id=$data[$i];
         
             // Fetch records from database 
-            $sel_query="SELECT * FROM  indiaData WHERE itemcode='$export_id'";
+            $sel_query="SELECT * FROM  indiadata WHERE itemcode='$export_id'";
             $query = mysqli_query($con,$sel_query);
 
             //And we display the results

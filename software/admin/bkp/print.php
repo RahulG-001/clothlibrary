@@ -68,7 +68,7 @@ include("auth.php");
 
        
       // search the database
-      $iname = mysqli_query($con,"SELECT * FROM indiaData WHERE itemcode LIKE '%$find%'");
+      $iname = mysqli_query($con,"SELECT * FROM indiadata WHERE itemcode LIKE '%$find%'");
           
       //This counts the number or results - and if there wasn't any it gives them a     little     message explaining that
       $anymatches = mysqli_num_rows($iname);
@@ -107,7 +107,7 @@ include("auth.php");
       // show all records
       else {
 
-      			$sel_query="SELECT * FROM indiaData";
+      			$sel_query="SELECT * FROM indiadata";
       			$result = mysqli_query($con,$sel_query);
       			while($row = mysqli_fetch_assoc($result)) { ?>
           

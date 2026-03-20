@@ -19,7 +19,7 @@ $fields = array('Item code', 'Description', 'Location', 'Width', 'Quantity', 'Ty
 $excelData = implode("\t", array_values($fields)) . "\n"; 
 
 // Fetch records from database 
-$sel_query="SELECT * FROM indiaData ORDER BY itemcode ASC";
+$sel_query="SELECT * FROM indiadata ORDER BY itemcode ASC";
 $query = mysqli_query($con,$sel_query);
 
 if($query->num_rows > 0){ 

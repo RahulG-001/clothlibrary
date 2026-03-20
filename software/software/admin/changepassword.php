@@ -8,7 +8,7 @@ if(isset($_POST['new']) && $_POST['new']==1){
 	$password=$_REQUEST['password'];
 	$cpassword=$_REQUEST['cpassword'];
     $check=mysqli_query($con,"select * from re_admin where password='$password'");
-	//$check="SELECT * FROM indiaData where itemcode='$itemcode'";
+	//$check="SELECT * FROM indiadata where itemcode='$itemcode'";
 	$duplicate= mysqli_num_rows($check);
 	// incase itemid is present
 	if($duplicate>0){  

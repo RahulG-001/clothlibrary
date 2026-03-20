@@ -69,7 +69,7 @@
 		   $find = trim ($find);
 		   
 			// search the database
-			$iname = mysql_query("SELECT * FROM indiaData WHERE itemcode LIKE '$find'")
+			$iname = mysql_query("SELECT * FROM indiadata WHERE itemcode LIKE '$find'")
 			or die(mysql_error());
 			
 			//And we remind them what they searched for

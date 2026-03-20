@@ -20,7 +20,7 @@ function downloadQrImage($qrText, $fileNamePrefix = 'stock_qrcode') {
 $qrPreviewItemCode = '';
 $qrPreviewItemId = 0;
 $qrPreviewImageUrl = '';
-$qrTargetUrl = '';
+$qrPreviewPayloadUrl = '';
 
 if (isset($_GET['qr_itemcode'])) {
   $itemCode = trim($_GET['qr_itemcode']);
@@ -30,19 +30,28 @@ if (isset($_GET['qr_itemcode'])) {
   }
 
   $itemCodeEsc = mysqli_real_escape_string($con, $itemCode);
-  $itemRes = mysqli_query($con, "SELECT id FROM indiaData WHERE itemcode = '".$itemCodeEsc."' LIMIT 1");
+  $itemRes = mysqli_query($con, "SELECT id FROM indiadata WHERE itemcode = '".$itemCodeEsc."' LIMIT 1");
   if (!$itemRes || mysqli_num_rows($itemRes) === 0) {
     header("Location: view.php?qr_error=1");
     exit;
   }
   $itemRow = mysqli_fetch_assoc($itemRes);
   $itemId = (int)$itemRow['id'];
+  // URL opens product page in a normal browser; same string works in qrcode_product_api.php (parses ?id=&itemcode=)
   $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-  $host = $_SERVER['HTTP_HOST'];
-  $adminBase = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
-  $softwareBase = rtrim(dirname($adminBase), '/\\');
-  $qrTargetUrl = $scheme.'://'.$host.$softwareBase.'/product_qr_view.php?id='.$itemId.'&itemcode='.urlencode($itemCode);
-  $qrText = $qrTargetUrl;
+  $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+  $softwarePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
+  $softwarePath = str_replace('\\', '/', $softwarePath);
+  if ($softwarePath === '/' || $softwarePath === '\\') {
+    $softwarePath = '';
+  }
+  $productPage = rtrim($softwarePath, '/').'/product_qr_view.php';
+  if ($productPage[0] !== '/') {
+    $productPage = '/'.$productPage;
+  }
+  // QR payload must be a valid URL for normal QR scanners.
+  // Service-man app calls the API using the same scanned payload and the API extracts id/itemcode from URL query params.
+  $qrText = $scheme.'://'.$host.$productPage.'?id='.$itemId.'&itemcode='.rawurlencode($itemCode);
 
   $safeFileCode = preg_replace('/[^A-Za-z0-9_-]/', '_', $itemCode);
   if ($safeFileCode === '') {
@@ -57,7 +66,7 @@ if (isset($_GET['qr_itemcode'])) {
   } else {
     $qrPreviewItemCode = $itemCode;
     $qrPreviewItemId = $itemId;
-    $qrTargetUrl = $qrText;
+    $qrPreviewPayloadUrl = $qrText;
     $qrPreviewImageUrl = 'https://quickchart.io/qr?size=400&format=png&text='.rawurlencode($qrText);
   }
 }
@@ -123,7 +132,7 @@ if (isset($_GET['qr_itemcode'])) {
           <h4 style="margin-top:0;">QR Code Preview</h4>
           <p><strong>ID:</strong> <?php echo (int)$qrPreviewItemId; ?></p>
           <p><strong>Item Code:</strong> <?php echo htmlspecialchars($qrPreviewItemCode); ?></p>
-          <p style="word-break:break-all; font-size:12px;"><strong>Scan URL:</strong> <?php echo htmlspecialchars($qrTargetUrl); ?></p>
+          <p style="font-size:12px; color:#555; word-break:break-all;">Opens in browser: <span title="Encoded in QR"><?php echo htmlspecialchars($qrPreviewPayloadUrl); ?></span></p>
           <img src="<?php echo htmlspecialchars($qrPreviewImageUrl); ?>" alt="QR code" class="img-responsive" style="margin:0 auto 12px auto; max-width:320px;">
           <p style="margin-bottom:0;">
             <a class="btn btn-sm btn-success" href="view.php?qr_itemcode=<?php echo urlencode($qrPreviewItemCode); ?>&download=1">
@@ -181,7 +190,7 @@ if (isset($_GET['qr_itemcode'])) {
 
           for($i=0;$i<count($_POST['checkbox']);$i++){
           $del_id=$_POST['checkbox'][$i];
-          $sql = "DELETE FROM indiaData WHERE itemcode='$del_id'";
+          $sql = "DELETE FROM indiadata WHERE itemcode='$del_id'";
           $result = mysqli_query($con,$sql);
           }
           // if successful redirect to delete_multiple.php
@@ -208,7 +217,7 @@ if (isset($_GET['qr_itemcode'])) {
         
 
 			$count=1;
-			$sel_query="SELECT * FROM indiaData";
+			$sel_query="SELECT * FROM indiadata";
 			$result = mysqli_query($con,$sel_query);
 
 			while($row = mysqli_fetch_assoc($result)) { ?>
