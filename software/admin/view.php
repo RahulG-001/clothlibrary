@@ -20,6 +20,7 @@ function downloadQrImage($qrText, $fileNamePrefix = 'stock_qrcode') {
 $qrPreviewItemCode = '';
 $qrPreviewItemId = 0;
 $qrPreviewImageUrl = '';
+$qrTargetUrl = '';
 
 if (isset($_GET['qr_itemcode'])) {
   $itemCode = trim($_GET['qr_itemcode']);
@@ -36,7 +37,12 @@ if (isset($_GET['qr_itemcode'])) {
   }
   $itemRow = mysqli_fetch_assoc($itemRes);
   $itemId = (int)$itemRow['id'];
-  $qrText = 'ID: '.$itemId.', ITEMCODE: '.$itemCode;
+  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $host = $_SERVER['HTTP_HOST'];
+  $adminBase = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+  $softwareBase = rtrim(dirname($adminBase), '/\\');
+  $qrTargetUrl = $scheme.'://'.$host.$softwareBase.'/product_qr_view.php?id='.$itemId.'&itemcode='.urlencode($itemCode);
+  $qrText = $qrTargetUrl;
 
   $safeFileCode = preg_replace('/[^A-Za-z0-9_-]/', '_', $itemCode);
   if ($safeFileCode === '') {
@@ -51,6 +57,7 @@ if (isset($_GET['qr_itemcode'])) {
   } else {
     $qrPreviewItemCode = $itemCode;
     $qrPreviewItemId = $itemId;
+    $qrTargetUrl = $qrText;
     $qrPreviewImageUrl = 'https://quickchart.io/qr?size=400&format=png&text='.rawurlencode($qrText);
   }
 }
@@ -116,6 +123,7 @@ if (isset($_GET['qr_itemcode'])) {
           <h4 style="margin-top:0;">QR Code Preview</h4>
           <p><strong>ID:</strong> <?php echo (int)$qrPreviewItemId; ?></p>
           <p><strong>Item Code:</strong> <?php echo htmlspecialchars($qrPreviewItemCode); ?></p>
+          <p style="word-break:break-all; font-size:12px;"><strong>Scan URL:</strong> <?php echo htmlspecialchars($qrTargetUrl); ?></p>
           <img src="<?php echo htmlspecialchars($qrPreviewImageUrl); ?>" alt="QR code" class="img-responsive" style="margin:0 auto 12px auto; max-width:320px;">
           <p style="margin-bottom:0;">
             <a class="btn btn-sm btn-success" href="view.php?qr_itemcode=<?php echo urlencode($qrPreviewItemCode); ?>&download=1">
