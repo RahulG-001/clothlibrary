@@ -108,8 +108,8 @@ foreach ($requiredByCode as $ic => $totalRequired) {
 
 $response['success'] = $allOk;
 $response['message'] = $allOk
-    ? 'All ordered quantities are available.'
-    : 'Some items do not have enough available quantity.';
+    ? 'All ordered meters are in stock.'
+    : 'Some items do not have enough stock (meters).';
 $response['data'] = [
     'order_id'    => $oid,
     'user_id'     => $order['user_id'],

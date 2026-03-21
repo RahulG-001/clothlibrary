@@ -10,6 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
+require_once('sales_order_helpers.php');
+require_once('cart_price.php');
 
 $response = [
     'success' => false,
@@ -18,6 +20,8 @@ $response = [
 ];
 
 $authSalesman = salesman_require_auth($con);
+
+$hasLinePrice = sales_order_item_has_price_column($con);
 
 $order_id   = isset($_GET['order_id']) ? (int)$_GET['order_id'] : 0;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -52,7 +56,8 @@ if ($search !== '') {
 $where[] = "o.status = 'placed'";
 $whereSql = ' WHERE '.implode(' AND ', $where).' ORDER BY o.id DESC';
 
-$orderQuery = "SELECT o.id AS order_id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at
+$commentSel = sales_order_has_salesman_comment_column($con) ? ', o.salesman_comment' : '';
+$orderQuery = "SELECT o.id AS order_id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at".$commentSel."
                FROM sales_order o".$whereSql;
 $orderRes = mysqli_query($con, $orderQuery);
 
@@ -68,19 +73,21 @@ while ($order = mysqli_fetch_assoc($orderRes)) {
     $oid = (int)$order['order_id'];
     $orderIds[] = $oid;
     $ordersById[$oid] = [
-        'order_id'    => $oid,
-        'user_id'     => $order['user_id'],
-        'salesman_id' => (int)$order['salesman_id'],
-        'status'      => $order['status'],
-        'created_at'  => $order['created_at'],
-        'updated_at'  => $order['updated_at'],
-        'products'    => []
+        'order_id'          => $oid,
+        'user_id'           => $order['user_id'],
+        'salesman_id'       => (int)$order['salesman_id'],
+        'status'            => $order['status'],
+        'created_at'        => $order['created_at'],
+        'updated_at'        => $order['updated_at'],
+        'salesman_comment'  => isset($order['salesman_comment']) ? (string)$order['salesman_comment'] : '',
+        'order_total'       => 0.0,
+        'products'          => []
     ];
 }
 
-// Get items with product details; price and available qty from product (price not stored in order)
-$itemsQuery = "SELECT oi.order_id, oi.id AS line_id, oi.itemcode, oi.quantity AS order_quantity, COALESCE(oi.meters,0) AS order_total_meters,
-               p.id AS product_id, p.description, p.image, p.width, p.type, p.quantity AS db_quantity
+$priceSel = $hasLinePrice ? ', oi.price AS line_unit_price' : '';
+$itemsQuery = "SELECT oi.order_id, oi.id AS line_id, oi.itemcode, COALESCE(oi.meters,0) AS order_total_meters,
+               p.id AS product_id, p.description, p.image, p.width, p.type, p.quantity AS db_quantity".$priceSel."
                FROM sales_order_item oi
                LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                WHERE oi.order_id IN (".implode(',', $orderIds).")";
@@ -93,17 +100,25 @@ $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 while ($row = mysqli_fetch_assoc($itemsRes)) {
     $img = isset($row['image']) ? $row['image'] : '';
     $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
-    $q = (float)$row['order_quantity'];
     $totalM = (float)$row['order_total_meters'];
-    $row['quantity'] = $q;
     $row['total_meters'] = $totalM;
-    $row['meters'] = $q > 0 ? round($totalM / $q, 2) : 0;
+    $row['meters'] = $totalM;
     $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
-    $row['price'] = isset($row['price']) ? $row['price'] : null;
     $oid = (int)$row['order_id'];
-    unset($row['order_quantity'], $row['order_total_meters'], $row['db_quantity']);
+    unset($row['order_total_meters'], $row['db_quantity']);
+    $priceRow = [
+        'total_meters'     => $totalM,
+        'line_unit_price'  => isset($row['line_unit_price']) ? $row['line_unit_price'] : null,
+    ];
+    cart_attach_line_amounts($priceRow, $hasLinePrice);
+    $row['price'] = $priceRow['price'];
+    $row['line_total'] = $priceRow['line_total'];
+    unset($row['line_unit_price']);
     if (isset($ordersById[$oid])) {
         $ordersById[$oid]['products'][] = $row;
+        if ($row['line_total'] !== null) {
+            $ordersById[$oid]['order_total'] = round($ordersById[$oid]['order_total'] + (float)$row['line_total'], 2);
+        }
     }
 }
 

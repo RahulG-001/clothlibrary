@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require('admin/db.php');
 require_once('salesman_auth.php');
+require_once('cart_price.php');
 
 $response = [
     'success' => false,
@@ -71,7 +72,8 @@ if ($countResult && mysqli_num_rows($countResult) === 1) {
 
 $offset = ($page - 1) * $perPage;
 
-$query  = "SELECT id, itemcode, image, description, width, quantity, type, trn_date ";
+$catalogPriceSel = indiadata_has_catalog_price_column($con) ? ', price' : '';
+$query  = "SELECT id, itemcode, image, description, width, quantity, type, trn_date".$catalogPriceSel." ";
 $query .= "FROM indiadata".$whereSql." ORDER BY itemcode ASC LIMIT ".$perPage." OFFSET ".$offset;
 
 $result = mysqli_query($con, $query);

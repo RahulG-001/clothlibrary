@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
+require_once('sales_order_helpers.php');
+require_once('cart_price.php');
 
 $response = [
     'success' => false,
@@ -34,6 +36,26 @@ if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'applica
 $order_id = isset($input['order_id']) ? (int)$input['order_id'] : 0;
 if ($order_id <= 0) {
     $response['message'] = 'order_id is required.';
+    echo json_encode($response);
+    exit;
+}
+
+$rawComment = '';
+if (isset($input['salesman_comment'])) {
+    $rawComment = (string)$input['salesman_comment'];
+} elseif (isset($input['comment'])) {
+    $rawComment = (string)$input['comment'];
+} elseif (isset($input['order_comment'])) {
+    $rawComment = (string)$input['order_comment'];
+}
+$rawComment = trim($rawComment);
+if (strlen($rawComment) > 8000) {
+    $rawComment = substr($rawComment, 0, 8000);
+}
+
+$hasCommentCol = sales_order_has_salesman_comment_column($con);
+if ($rawComment !== '' && !$hasCommentCol) {
+    $response['message'] = 'salesman_comment column missing. Run software/admin/alter_sales_order_salesman_comment.sql.';
     echo json_encode($response);
     exit;
 }
@@ -106,7 +128,12 @@ if (!empty($deductErrors)) {
     exit;
 }
 
-$upOrder = mysqli_query($con, "UPDATE sales_order SET status = 'placed' WHERE id = '".$order_id."'");
+$commentEsc = mysqli_real_escape_string($con, $rawComment);
+if ($hasCommentCol) {
+    $upOrder = mysqli_query($con, "UPDATE sales_order SET status = 'placed', salesman_comment = '".$commentEsc."' WHERE id = '".$order_id."'");
+} else {
+    $upOrder = mysqli_query($con, "UPDATE sales_order SET status = 'placed' WHERE id = '".$order_id."'");
+}
 if (!$upOrder) {
     mysqli_rollback($con);
     $response['message'] = 'Failed to update order status.';
@@ -116,13 +143,25 @@ if (!$upOrder) {
 
 mysqli_commit($con);
 
+$orderTotal = null;
+if (sales_order_item_has_price_column($con)) {
+    $totRes = mysqli_query($con, "SELECT SUM(COALESCE(price,0)) AS t FROM sales_order_item WHERE order_id = '".$order_id."'");
+    if ($totRes && ($tr = mysqli_fetch_assoc($totRes)) && isset($tr['t'])) {
+        $orderTotal = round((float)$tr['t'], 2);
+    } else {
+        $orderTotal = 0.0;
+    }
+}
+
 $response['success'] = true;
 $response['message'] = 'Order placed successfully. Stock deducted.';
 $response['data'] = [
-    'order_id'     => $order_id,
-    'user_id'      => $order['user_id'],
-    'salesman_id'  => (int)$order['salesman_id'],
-    'status'       => 'placed'
+    'order_id'          => $order_id,
+    'user_id'           => $order['user_id'],
+    'salesman_id'       => (int)$order['salesman_id'],
+    'status'            => 'placed',
+    'salesman_comment'  => $hasCommentCol ? $rawComment : '',
+    'order_total'       => $orderTotal,
 ];
 
 echo json_encode($response);

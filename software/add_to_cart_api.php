@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
+require_once('cart_price.php');
 
 $response = [
     'success' => false,
@@ -37,9 +38,9 @@ $user_id     = isset($input['user_id']) ? trim((string)$input['user_id']) : '';
 $salesman_id = (int)$authSalesman['id'];
 $rawItems    = isset($input['items']) ? $input['items'] : null;
 
-// Normalize items: accept single object {"itemcode":"X","quantity":1} or array of same
+// Normalize items: meter-only lines (quantity is not used; DB column kept as 1)
 if (!is_array($rawItems) || empty($rawItems)) {
-    $response['message'] = 'items required. Each: itemcode, quantity, meters (meters optional, default 1). Example: {"itemcode":"CL001","quantity":2,"meters":5}';
+    $response['message'] = 'items required. Each: itemcode, meters (> 0), price (optional, line total saved as-is). Example: {"itemcode":"CL001","meters":12.5,"price":500}';
     echo json_encode($response);
     exit;
 }
@@ -84,20 +85,17 @@ foreach ($items as $item) {
         continue;
     }
     $itemcode = isset($item['itemcode']) ? trim((string)$item['itemcode']) : '';
-    $qty      = isset($item['quantity']) ? (float)$item['quantity'] : 0;
-    $meters   = isset($item['meters']) ? (float)$item['meters'] : 0;
-    if ($meters <= 0) {
-        $meters = 1.0;
-    }
-    if ($itemcode === '' || $qty <= 0) {
-        $rejectedItems[] = ['itemcode' => $itemcode, 'quantity' => $qty, 'meters' => $meters, 'reason' => 'missing_itemcode_or_quantity'];
+    $addMeters = isset($item['meters']) ? (float)$item['meters'] : 0;
+    $linePrice = cart_parse_line_price(isset($item['price']) ? $item['price'] : (isset($item['unit_price']) ? $item['unit_price'] : null));
+    if ($itemcode === '' || $addMeters <= 0) {
+        $rejectedItems[] = ['itemcode' => $itemcode, 'meters' => $addMeters, 'reason' => 'missing_itemcode_or_meters'];
         continue;
     }
     $itemcode_esc = mysqli_real_escape_string($con, $itemcode);
     // Match product by itemcode (case-insensitive, trim) so CL001 matches cl001 or " CL001 "
     $prod = mysqli_query($con, "SELECT itemcode, quantity FROM indiadata WHERE LOWER(TRIM(itemcode)) = LOWER(TRIM('".$itemcode_esc."')) LIMIT 1");
     if (!$prod || mysqli_num_rows($prod) === 0) {
-        $rejectedItems[] = ['itemcode' => $itemcode, 'quantity' => $qty, 'reason' => 'product_not_found'];
+        $rejectedItems[] = ['itemcode' => $itemcode, 'meters' => $addMeters, 'reason' => 'product_not_found'];
         continue;
     }
     $prow = mysqli_fetch_assoc($prod);
@@ -106,16 +104,16 @@ foreach ($items as $item) {
     $validItems[] = [
         'itemcode' => $db_itemcode,
         'itemcode_esc' => mysqli_real_escape_string($con, $db_itemcode),
-        'quantity' => $qty,
-        'meters' => $meters,
-        'available' => $available
+        'add_meters' => round($addMeters, 2),
+        'available' => $available,
+        'line_price' => $linePrice,
     ];
 }
 
 // If no valid items: do not create any order, return success false
 if (empty($validItems)) {
     $response['success'] = false;
-    $response['message'] = 'No valid items (check itemcode exists and quantity >= 1).';
+    $response['message'] = 'No valid items (check itemcode exists and meters > 0).';
     $response['data']    = null;
     echo json_encode($response);
     exit;
@@ -143,56 +141,83 @@ if ($order_id === null) {
 
 $metersColCheck = mysqli_query($con, "SHOW COLUMNS FROM sales_order_item LIKE 'meters'");
 $hasMetersColumn = $metersColCheck && mysqli_num_rows($metersColCheck) > 0;
+$hasPriceColumn = sales_order_item_has_price_column($con);
 
-// DB meters column = total meters (quantity × meters per piece)
+// DB: quantity column fixed at 1; meters = total meters on the line
+$qtyOne = '1';
 $added = [];
 $failedItems = [];
 foreach ($validItems as $v) {
     $itemcode_esc = $v['itemcode_esc'];
-    $qty = $v['quantity'];
-    $metersPerPiece = $v['meters'];
-    $totalMeters = round($qty * $metersPerPiece, 2);
-    $totalMetersStr = mysqli_real_escape_string($con, number_format($totalMeters, 2, '.', ''));
+    $segmentMeters = (float)$v['add_meters'];
+    $addLinePrice = $v['line_price'];
+    $totalMetersStr = mysqli_real_escape_string($con, number_format($segmentMeters, 2, '.', ''));
 
-    $exist = mysqli_query($con, "SELECT id, quantity, COALESCE(meters,0) AS total_m FROM sales_order_item WHERE order_id = '".$order_id."' AND itemcode = '".$itemcode_esc."' LIMIT 1");
+    $existSql = "SELECT id, COALESCE(meters,0) AS total_m FROM sales_order_item WHERE order_id = '".$order_id."' AND itemcode = '".$itemcode_esc."' LIMIT 1";
+    if ($hasPriceColumn) {
+        $existSql = "SELECT id, COALESCE(meters,0) AS total_m, price FROM sales_order_item WHERE order_id = '".$order_id."' AND itemcode = '".$itemcode_esc."' LIMIT 1";
+    }
+    $exist = mysqli_query($con, $existSql);
 
     if ($exist && mysqli_num_rows($exist) === 1) {
         $ex = mysqli_fetch_assoc($exist);
-        $newQty = (float)$ex['quantity'] + $qty;
-        $newTotalM = (float)$ex['total_m'] + $totalMeters;
+        $newTotalM = (float)$ex['total_m'] + $segmentMeters;
         $newTotalMStr = mysqli_real_escape_string($con, number_format($newTotalM, 2, '.', ''));
+        $priceFragment = '';
+        if ($hasPriceColumn) {
+            $oldP = cart_normalize_stored_price(isset($ex['price']) ? $ex['price'] : null);
+            $blended = cart_blend_line_price($oldP, $addLinePrice);
+            if ($blended === null) {
+                $priceFragment = ', price = NULL';
+            } else {
+                $priceFragment = ", price = '".mysqli_real_escape_string($con, number_format($blended, 4, '.', ''))."'";
+            }
+        }
         if ($hasMetersColumn) {
-            $ok = mysqli_query($con, "UPDATE sales_order_item SET quantity = '".mysqli_real_escape_string($con, $newQty)."', meters = '".$newTotalMStr."' WHERE id = '".(int)$ex['id']."'");
+            $ok = mysqli_query($con, "UPDATE sales_order_item SET quantity = '".$qtyOne."', meters = '".$newTotalMStr."'".$priceFragment." WHERE id = '".(int)$ex['id']."'");
         } else {
-            $ok = mysqli_query($con, "UPDATE sales_order_item SET quantity = '".mysqli_real_escape_string($con, $newQty)."' WHERE id = '".(int)$ex['id']."'");
+            $ok = mysqli_query($con, "UPDATE sales_order_item SET quantity = '".$qtyOne."'".$priceFragment." WHERE id = '".(int)$ex['id']."'");
         }
         if ($ok) {
-            $added[] = ['itemcode' => $v['itemcode'], 'quantity' => $newQty, 'meters' => $metersPerPiece, 'total_meters' => $newTotalM];
+            $added[] = ['itemcode' => $v['itemcode'], 'meters_added' => $segmentMeters, 'total_meters' => $newTotalM];
         } else {
             $failedItems[] = ['itemcode' => $v['itemcode'], 'reason' => 'update_failed', 'db_error' => mysqli_error($con)];
         }
     } else {
+        $priceValSql = 'NULL';
+        if ($hasPriceColumn && $addLinePrice !== null) {
+            $priceValSql = "'".mysqli_real_escape_string($con, number_format($addLinePrice, 4, '.', ''))."'";
+        }
         if ($hasMetersColumn) {
-            $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".mysqli_real_escape_string($con, $qty)."', '".$totalMetersStr."', NULL)";
+            if ($hasPriceColumn) {
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."', '".$totalMetersStr."', ".$priceValSql.")";
+            } else {
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."', '".$totalMetersStr."', NULL)";
+            }
         } else {
-            $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".mysqli_real_escape_string($con, $qty)."', NULL)";
+            if ($hasPriceColumn) {
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."', ".$priceValSql.")";
+            } else {
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."', NULL)";
+            }
         }
         if (mysqli_query($con, $insItem)) {
-            $added[] = ['itemcode' => $v['itemcode'], 'quantity' => $qty, 'meters' => $metersPerPiece, 'total_meters' => $totalMeters];
+            $added[] = ['itemcode' => $v['itemcode'], 'meters_added' => $segmentMeters, 'total_meters' => $segmentMeters];
         } else {
             $failedItems[] = ['itemcode' => $v['itemcode'], 'reason' => 'insert_failed', 'db_error' => mysqli_error($con)];
         }
     }
 }
 
-// Build response: products with available qty (fallback if `meters` column missing)
-$orderItemsQuery = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity AS order_quantity, oi.meters AS order_meters, p.description, p.image, p.quantity AS db_quantity
+// Build response: products with stock (fallback if `meters` column missing)
+$priceSel = $hasPriceColumn ? ', oi.price AS line_unit_price' : '';
+$orderItemsQuery = "SELECT oi.id AS line_id, oi.itemcode, COALESCE(oi.meters,0) AS order_total_meters, p.description, p.image, p.quantity AS db_quantity".$priceSel."
                     FROM sales_order_item oi
                     LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                     WHERE oi.order_id = '".$order_id."'";
 $orderItemsRes = mysqli_query($con, $orderItemsQuery);
 if (!$orderItemsRes) {
-    $orderItemsQuery = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity AS order_quantity, 1 AS order_meters, p.description, p.image, p.quantity AS db_quantity
+    $orderItemsQuery = "SELECT oi.id AS line_id, oi.itemcode, 1 AS order_total_meters, p.description, p.image, p.quantity AS db_quantity".$priceSel."
                         FROM sales_order_item oi
                         LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                         WHERE oi.order_id = '".$order_id."'";
@@ -210,13 +235,12 @@ if (!$orderItemsRes) {
     while ($row = mysqli_fetch_assoc($orderItemsRes)) {
         $img = isset($row['image']) ? $row['image'] : '';
         $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
-        $q = (float)$row['order_quantity'];
-        $totalM = isset($row['order_meters']) ? (float)$row['order_meters'] : 0.0;
-        $row['quantity'] = $q;
+        $totalM = isset($row['order_total_meters']) ? (float)$row['order_total_meters'] : 0.0;
+        $row['meters'] = $totalM;
         $row['total_meters'] = $totalM;
-        $row['meters'] = $q > 0 ? round($totalM / $q, 2) : 0;
         $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
-        unset($row['order_quantity'], $row['order_meters'], $row['db_quantity']);
+        unset($row['order_total_meters'], $row['db_quantity']);
+        cart_attach_line_amounts($row, $hasPriceColumn);
         $products[] = $row;
     }
 }
@@ -244,6 +268,7 @@ $response['data'] = [
     'user_id'             => $user_id_stored,
     'salesman_id'         => $salesman_id,
     'status'              => 'cart',
+    'cart_total'          => cart_sum_line_totals($products),
     'added_this_request'  => $added,
     'rejected_items'      => $rejectedItems,
     'failed_items'        => $failedItems,
