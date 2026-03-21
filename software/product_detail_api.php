@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require('admin/db.php');
 require_once('salesman_auth.php');
+require_once('cart_price.php');
 
 $response = [
     'success' => false,
@@ -40,7 +41,8 @@ if ($itemcode !== '') {
 
 $whereSql = ' WHERE '.implode(' AND ', $where).' LIMIT 1';
 
-$query  = "SELECT id, itemcode, image, description, width, quantity, type, trn_date ";
+$catalogPriceSel = indiadata_has_catalog_price_column($con) ? ', price' : '';
+$query  = "SELECT id, itemcode, image, description, width, quantity, type, trn_date".$catalogPriceSel." ";
 $query .= "FROM indiadata".$whereSql;
 
 $result = mysqli_query($con, $query);

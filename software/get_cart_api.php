@@ -10,6 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
+require_once('sales_order_helpers.php');
+require_once('cart_price.php');
 
 $response = [
     'success' => false,
@@ -19,12 +21,15 @@ $response = [
 
 $authSalesman = salesman_require_auth($con);
 
+$hasLinePrice = sales_order_item_has_price_column($con);
+
 // We only care about the current cart for a user + salesman
 $salesman_id = (int)$authSalesman['id'];
 
 // Latest cart order (status = cart) for this user and salesman
+$commentSel = sales_order_has_salesman_comment_column($con) ? ', o.salesman_comment' : '';
 $orderQuery = "
-    SELECT o.id AS order_id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at
+    SELECT o.id AS order_id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at".$commentSel."
     FROM sales_order o
     WHERE o.salesman_id = '".$salesman_id."'
       AND o.status = 'cart'
@@ -49,19 +54,19 @@ if (!isset($order['status']) || $order['status'] !== 'cart') {
     exit;
 }
 
-// Items in the cart. meters column in DB = total meters for the line.
+// Items in the cart: oi.meters = line total (meters only; quantity column unused in API).
+$priceSel = $hasLinePrice ? ', oi.price AS line_unit_price' : '';
 $itemsQuery = "
     SELECT 
         oi.id AS line_id,
         oi.itemcode,
-        oi.quantity       AS order_quantity,
         COALESCE(oi.meters,0) AS order_total_meters,
         p.id             AS product_id,
         p.description,
         p.image,
         p.width,
         p.type,
-        p.quantity       AS db_quantity
+        p.quantity       AS db_quantity".$priceSel."
     FROM sales_order_item oi
     LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
     WHERE oi.order_id = '".$oid."'
@@ -77,28 +82,29 @@ while ($row = mysqli_fetch_assoc($itemsRes)) {
     $img = isset($row['image']) ? $row['image'] : '';
     $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
 
-    $q       = (float)$row['order_quantity'];
     $totalM  = (float)$row['order_total_meters'];
 
-    $row['quantity']      = $q;
+    $row['meters']        = $totalM;
     $row['total_meters']  = $totalM;
-    $row['meters']        = $q > 0 ? round($totalM / $q, 2) : 0; // per-piece meters for UI
     $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
 
-    unset($row['order_quantity'], $row['order_total_meters'], $row['db_quantity']);
+    unset($row['order_total_meters'], $row['db_quantity']);
+    cart_attach_line_amounts($row, $hasLinePrice);
     $products[] = $row;
 }
 
 $response['success'] = true;
 $response['message'] = 'Cart fetched successfully.';
 $response['data'] = [
-    'order_id'     => $oid,
-    'user_id'      => $order['user_id'],
-    'salesman_id'  => (int)$order['salesman_id'],
-    'status'       => $order['status'],
-    'created_at'   => $order['created_at'],
-    'updated_at'   => $order['updated_at'],
-    'products'     => $products
+    'order_id'          => $oid,
+    'user_id'           => $order['user_id'],
+    'salesman_id'       => (int)$order['salesman_id'],
+    'status'            => $order['status'],
+    'created_at'        => $order['created_at'],
+    'updated_at'        => $order['updated_at'],
+    'salesman_comment'  => isset($order['salesman_comment']) ? (string)$order['salesman_comment'] : '',
+    'cart_total'        => cart_sum_line_totals($products),
+    'products'          => $products
 ];
 
 echo json_encode($response);

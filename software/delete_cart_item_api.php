@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
+require_once('cart_price.php');
 
 $response = [
     'success' => false,
@@ -21,6 +22,7 @@ $response = [
 // Require salesman token
 $authSalesman = salesman_require_auth($con);
 $salesman_id = (int)$authSalesman['id'];
+$hasLinePrice = sales_order_item_has_price_column($con);
 
 // Accept JSON body or form-data
 $input = [];
@@ -97,18 +99,18 @@ if (!$del) {
 }
 
 // Return updated cart products list (same style as get_cart_api)
+$priceSel = $hasLinePrice ? ', oi.price AS line_unit_price' : '';
 $itemsQuery = "
     SELECT 
         oi.id AS line_id,
         oi.itemcode,
-        oi.quantity       AS order_quantity,
         COALESCE(oi.meters,0) AS order_total_meters,
         p.id             AS product_id,
         p.description,
         p.image,
         p.width,
         p.type,
-        p.quantity       AS db_quantity
+        p.quantity       AS db_quantity".$priceSel."
     FROM sales_order_item oi
     LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
     WHERE oi.order_id = '".$order_id."'
@@ -125,15 +127,14 @@ if ($itemsRes) {
         $img = isset($row['image']) ? $row['image'] : '';
         $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
 
-        $q       = (float)$row['order_quantity'];
         $totalM  = (float)$row['order_total_meters'];
 
-        $row['quantity']      = $q;
+        $row['meters']        = $totalM;
         $row['total_meters']  = $totalM;
-        $row['meters']        = $q > 0 ? round($totalM / $q, 2) : 0;
         $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
 
-        unset($row['order_quantity'], $row['order_total_meters'], $row['db_quantity']);
+        unset($row['order_total_meters'], $row['db_quantity']);
+        cart_attach_line_amounts($row, $hasLinePrice);
         $products[] = $row;
     }
 }
@@ -147,6 +148,7 @@ $response['data'] = [
     'status'       => $order['status'],
     'created_at'   => $order['created_at'],
     'updated_at'   => $order['updated_at'],
+    'cart_total'   => cart_sum_line_totals($products),
     'products'     => $products
 ];
 
