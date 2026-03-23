@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
+require_once('product_stock_helpers.php');
 
 $response = [
     'success' => false,
@@ -54,9 +55,9 @@ if (!$orderRes || mysqli_num_rows($orderRes) === 0) {
 $order = mysqli_fetch_assoc($orderRes);
 $oid   = (int)$order['order_id'];
 
-// meters column = total meters per line; sum per itemcode
-$itemsSql = "SELECT oi.itemcode, COALESCE(oi.meters,0) AS order_total_meters,
-                    p.description, p.image, p.quantity AS db_quantity
+// Per itemcode: sum meters (type M) or pieces (type PCS) vs indiadata.quantity in same units
+$itemsSql = "SELECT oi.itemcode, oi.quantity AS order_qty, COALESCE(oi.meters,0) AS order_total_meters,
+                    p.description, p.image, p.quantity AS db_quantity, p.type AS product_type
              FROM sales_order_item oi
              LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
              WHERE oi.order_id = '".$oid."'";
@@ -71,16 +72,21 @@ $metaByCode = [];
 if ($itemsRes) {
     while ($row = mysqli_fetch_assoc($itemsRes)) {
         $ic = $row['itemcode'];
-        $lineM = (float)$row['order_total_meters'];
+        $ptype = isset($row['product_type']) ? $row['product_type'] : '';
         if (!isset($requiredByCode[$ic])) {
-            $requiredByCode[$ic] = 0.0;
+            $requiredByCode[$ic] = ['m' => 0.0, 'pcs' => 0.0];
         }
-        $requiredByCode[$ic] += $lineM;
+        if (product_stock_type_is_pcs($ptype)) {
+            $requiredByCode[$ic]['pcs'] += isset($row['order_qty']) ? (float)$row['order_qty'] : 0.0;
+        } else {
+            $requiredByCode[$ic]['m'] += (float)$row['order_total_meters'];
+        }
         if (!isset($metaByCode[$ic])) {
             $metaByCode[$ic] = [
                 'description' => isset($row['description']) ? $row['description'] : null,
                 'image' => isset($row['image']) ? $row['image'] : '',
-                'available' => parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '')
+                'available' => parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : ''),
+                'product_type' => $ptype
             ];
         }
     }
@@ -88,7 +94,10 @@ if ($itemsRes) {
 
 $items = [];
 $allOk = true;
-foreach ($requiredByCode as $ic => $totalRequired) {
+foreach ($requiredByCode as $ic => $req) {
+    $ptype = isset($metaByCode[$ic]['product_type']) ? $metaByCode[$ic]['product_type'] : '';
+    $isPcs = product_stock_type_is_pcs($ptype);
+    $totalRequired = $isPcs ? $req['pcs'] : $req['m'];
     $available = $metaByCode[$ic]['available'];
     $ok = $totalRequired <= $available;
     $shortBy = $ok ? 0.0 : round($totalRequired - $available, 2);
@@ -99,7 +108,9 @@ foreach ($requiredByCode as $ic => $totalRequired) {
         'description' => $metaByCode[$ic]['description'],
         'image' => $img,
         'image_url' => $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '',
-        'ordered_total_meters' => $totalRequired,
+        'stock_mode' => $isPcs ? 'PCS' : 'M',
+        'ordered_total_meters' => $isPcs ? 0.0 : $totalRequired,
+        'ordered_total_pieces' => $isPcs ? $totalRequired : null,
         'available_quantity' => $available,
         'ok' => $ok,
         'short_by' => $shortBy
@@ -108,8 +119,8 @@ foreach ($requiredByCode as $ic => $totalRequired) {
 
 $response['success'] = $allOk;
 $response['message'] = $allOk
-    ? 'All ordered meters are in stock.'
-    : 'Some items do not have enough stock (meters).';
+    ? 'All ordered quantities are in stock.'
+    : 'Some items do not have enough stock.';
 $response['data'] = [
     'order_id'    => $oid,
     'user_id'     => $order['user_id'],
