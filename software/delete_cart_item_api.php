@@ -12,6 +12,7 @@ require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
 require_once('cart_price.php');
+require_once('product_stock_helpers.php');
 
 $response = [
     'success' => false,
@@ -104,12 +105,13 @@ $itemsQuery = "
     SELECT 
         oi.id AS line_id,
         oi.itemcode,
+        oi.quantity      AS order_qty,
         COALESCE(oi.meters,0) AS order_total_meters,
         p.id             AS product_id,
         p.description,
         p.image,
         p.width,
-        p.type,
+        p.type           AS product_type,
         p.quantity       AS db_quantity".$priceSel."
     FROM sales_order_item oi
     LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
@@ -127,13 +129,27 @@ if ($itemsRes) {
         $img = isset($row['image']) ? $row['image'] : '';
         $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
 
-        $totalM  = (float)$row['order_total_meters'];
+        $ptype = isset($row['product_type']) ? $row['product_type'] : '';
+        $qty = isset($row['order_qty']) ? (float)$row['order_qty'] : 0.0;
+        $totalM = (float)$row['order_total_meters'];
 
-        $row['meters']        = $totalM;
-        $row['total_meters']  = $totalM;
+        if (product_stock_type_is_pcs($ptype)) {
+            $row['stock_mode'] = 'PCS';
+            $row['pieces'] = $qty;
+            $row['total_pieces'] = $qty;
+            $row['meters'] = $totalM;
+            $row['total_meters'] = $totalM;
+        } else {
+            $row['stock_mode'] = 'M';
+            $row['meters'] = $totalM;
+            $row['total_meters'] = $totalM;
+            $row['pieces'] = null;
+            $row['total_pieces'] = null;
+        }
+
         $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
 
-        unset($row['order_total_meters'], $row['db_quantity']);
+        unset($row['order_qty'], $row['order_total_meters'], $row['db_quantity'], $row['product_type']);
         cart_attach_line_amounts($row, $hasLinePrice);
         $products[] = $row;
     }

@@ -12,6 +12,7 @@ require_once('quantity_parser.php');
 require_once('salesman_auth.php');
 require_once('sales_order_helpers.php');
 require_once('cart_price.php');
+require_once('product_stock_helpers.php');
 
 $response = [
     'success' => false,
@@ -86,8 +87,9 @@ while ($order = mysqli_fetch_assoc($orderRes)) {
 }
 
 $priceSel = $hasLinePrice ? ', oi.price AS line_unit_price' : '';
-$itemsQuery = "SELECT oi.order_id, oi.id AS line_id, oi.itemcode, COALESCE(oi.meters,0) AS order_total_meters,
-               p.id AS product_id, p.description, p.image, p.width, p.type, p.quantity AS db_quantity".$priceSel."
+$itemsQuery = "SELECT oi.order_id, oi.id AS line_id, oi.itemcode, oi.quantity AS order_qty,
+               COALESCE(oi.meters,0) AS order_total_meters,
+               p.id AS product_id, p.description, p.image, p.width, p.type AS product_type, p.quantity AS db_quantity".$priceSel."
                FROM sales_order_item oi
                LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                WHERE oi.order_id IN (".implode(',', $orderIds).")";
@@ -100,12 +102,26 @@ $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 while ($row = mysqli_fetch_assoc($itemsRes)) {
     $img = isset($row['image']) ? $row['image'] : '';
     $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
+    $ptype = isset($row['product_type']) ? $row['product_type'] : '';
+    $qty = isset($row['order_qty']) ? (float)$row['order_qty'] : 0.0;
     $totalM = (float)$row['order_total_meters'];
-    $row['total_meters'] = $totalM;
-    $row['meters'] = $totalM;
+    $row['type'] = $ptype;
+    if (product_stock_type_is_pcs($ptype)) {
+        $row['stock_mode'] = 'PCS';
+        $row['pieces'] = $qty;
+        $row['total_pieces'] = $qty;
+        $row['total_meters'] = $totalM;
+        $row['meters'] = $totalM;
+    } else {
+        $row['stock_mode'] = 'M';
+        $row['total_meters'] = $totalM;
+        $row['meters'] = $totalM;
+        $row['pieces'] = null;
+        $row['total_pieces'] = null;
+    }
     $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
     $oid = (int)$row['order_id'];
-    unset($row['order_total_meters'], $row['db_quantity']);
+    unset($row['order_qty'], $row['order_total_meters'], $row['db_quantity'], $row['product_type']);
     $priceRow = [
         'total_meters'     => $totalM,
         'line_unit_price'  => isset($row['line_unit_price']) ? $row['line_unit_price'] : null,

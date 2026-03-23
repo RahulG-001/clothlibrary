@@ -12,6 +12,7 @@ require_once('quantity_parser.php');
 require_once('salesman_auth.php');
 require_once('sales_order_helpers.php');
 require_once('cart_price.php');
+require_once('product_stock_helpers.php');
 
 $response = [
     'success' => false,
@@ -52,8 +53,8 @@ $hasLinePrice = sales_order_item_has_price_column($con);
 $priceSel = $hasLinePrice ? ', oi.price AS line_unit_price' : '';
 
 // Items + product details
-$itemsQuery = "SELECT oi.id AS line_id, oi.itemcode, COALESCE(oi.meters,0) AS order_total_meters,
-                      p.description, p.image, p.quantity AS db_quantity, p.width, p.type, p.trn_date".$priceSel."
+$itemsQuery = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity AS order_qty, COALESCE(oi.meters,0) AS order_total_meters,
+                      p.description, p.image, p.quantity AS db_quantity, p.width, p.type AS product_type, p.trn_date".$priceSel."
                FROM sales_order_item oi
                LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
                WHERE oi.order_id = '".$oid."'";
@@ -65,11 +66,15 @@ $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 
 $items = [];
 $totalMeters = 0;
+$totalPieces = 0;
+$hasPcsItems = false;
 $orderTotal = 0.0;
 $primaryProductName = null;
 if ($itemsRes) {
     while ($row = mysqli_fetch_assoc($itemsRes)) {
         $img = isset($row['image']) ? $row['image'] : '';
+        $ptype = isset($row['product_type']) ? $row['product_type'] : '';
+        $qty = isset($row['order_qty']) ? (float)$row['order_qty'] : 0.0;
         $totalM = (float)$row['order_total_meters'];
         if ($primaryProductName === null && !empty($row['description'])) {
             $primaryProductName = $row['description'];
@@ -84,7 +89,12 @@ if ($itemsRes) {
         if ($lt !== null) {
             $orderTotal += (float)$lt;
         }
-        $items[] = [
+        $isPcs = product_stock_type_is_pcs($ptype);
+        if ($isPcs) {
+            $hasPcsItems = true;
+            $totalPieces += $qty;
+        }
+        $line = [
             'line_id'             => (int)$row['line_id'],
             'itemcode'            => $row['itemcode'],
             'meters'              => $totalM,
@@ -97,10 +107,14 @@ if ($itemsRes) {
             'image'               => $img,
             'image_url'           => $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '',
             'width'               => isset($row['width']) ? $row['width'] : null,
-            'type'                => isset($row['type']) ? $row['type'] : null,
+            'type'                => $ptype !== '' ? $ptype : null,
+            'stock_mode'          => $isPcs ? 'PCS' : 'M',
+            'pieces'              => $isPcs ? $qty : null,
+            'total_pieces'        => $isPcs ? $qty : null,
             'location'            => isset($row['location']) ? $row['location'] : null,
             'trn_date'            => isset($row['trn_date']) ? $row['trn_date'] : null
         ];
+        $items[] = $line;
     }
 }
 
@@ -111,6 +125,7 @@ $response['data'] = [
     'product_name'      => $primaryProductName,
     'line_count'        => count($items),
     'total_meters'      => round($totalMeters, 2),
+    'total_pieces'      => $hasPcsItems ? round($totalPieces, 2) : null,
     'order_total'       => round($orderTotal, 2),
     'user_id'           => $order['user_id'],
     'salesman_id'       => (int)$order['salesman_id'],

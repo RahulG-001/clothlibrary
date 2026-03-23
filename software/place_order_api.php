@@ -13,6 +13,7 @@ require_once('quantity_parser.php');
 require_once('salesman_auth.php');
 require_once('sales_order_helpers.php');
 require_once('cart_price.php');
+require_once('product_stock_helpers.php');
 
 $response = [
     'success' => false,
@@ -74,8 +75,13 @@ if ($order['status'] !== 'cart') {
     exit;
 }
 
-// meters column = total meters per line; sum per itemcode
-$itemsRes = mysqli_query($con, "SELECT oi.itemcode, COALESCE(oi.meters, 0) AS total_meters FROM sales_order_item oi WHERE oi.order_id = '".$order_id."'");
+$itemsRes = mysqli_query(
+    $con,
+    "SELECT oi.itemcode, COALESCE(oi.quantity,0) AS line_qty, COALESCE(oi.meters,0) AS line_meters, p.type AS product_type
+     FROM sales_order_item oi
+     INNER JOIN indiadata p ON p.itemcode = oi.itemcode
+     WHERE oi.order_id = '".$order_id."'"
+);
 if (!$itemsRes || mysqli_num_rows($itemsRes) === 0) {
     $response['message'] = 'Order has no items.';
     echo json_encode($response);
@@ -85,32 +91,45 @@ if (!$itemsRes || mysqli_num_rows($itemsRes) === 0) {
 $deductByItemcode = [];
 while ($row = mysqli_fetch_assoc($itemsRes)) {
     $ic = trim((string)$row['itemcode']);
-    $lineTotal = (float)$row['total_meters'];
     if (!isset($deductByItemcode[$ic])) {
-        $deductByItemcode[$ic] = 0.0;
+        $deductByItemcode[$ic] = ['m' => 0.0, 'pcs' => 0.0, 'type' => isset($row['product_type']) ? $row['product_type'] : ''];
     }
-    $deductByItemcode[$ic] += $lineTotal;
+    if (product_stock_type_is_pcs($row['product_type'])) {
+        $deductByItemcode[$ic]['pcs'] += (float)$row['line_qty'];
+    } else {
+        $deductByItemcode[$ic]['m'] += (float)$row['line_meters'];
+    }
 }
 
 $deductErrors = [];
 mysqli_begin_transaction($con);
 
-foreach ($deductByItemcode as $itemcode => $totalDeductMeters) {
+foreach ($deductByItemcode as $itemcode => $bucket) {
     $itemcode_esc = mysqli_real_escape_string($con, $itemcode);
-    $prodRes = mysqli_query($con, "SELECT quantity FROM indiadata WHERE itemcode = '".$itemcode_esc."' LIMIT 1");
+    $prodRes = mysqli_query($con, "SELECT quantity, type FROM indiadata WHERE itemcode = '".$itemcode_esc."' LIMIT 1");
     if (!$prodRes || mysqli_num_rows($prodRes) === 0) {
         $deductErrors[] = $itemcode.': product not found';
         continue;
     }
     $prod = mysqli_fetch_assoc($prodRes);
     $available = parse_quantity_to_number(isset($prod['quantity']) ? $prod['quantity'] : '');
+    $ptype = isset($prod['type']) ? $prod['type'] : '';
 
-    if ($totalDeductMeters > $available) {
-        $deductErrors[] = $itemcode.": need ".$totalDeductMeters." m, available ".$available;
-        continue;
+    if (product_stock_type_is_pcs($ptype)) {
+        $need = (float)$bucket['pcs'];
+        if ($need > $available) {
+            $deductErrors[] = $itemcode.': need '.$need.' pcs, available '.$available;
+            continue;
+        }
+    } else {
+        $need = (float)$bucket['m'];
+        if ($need > $available) {
+            $deductErrors[] = $itemcode.': need '.$need.' m, available '.$available;
+            continue;
+        }
     }
 
-    $newQty = $available - $totalDeductMeters;
+    $newQty = $available - $need;
     $newStr = format_quantity_for_db($newQty);
     $newStrEsc = mysqli_real_escape_string($con, $newStr);
     $up = mysqli_query($con, "UPDATE indiadata SET quantity = '".$newStrEsc."' WHERE itemcode = '".$itemcode_esc."'");
