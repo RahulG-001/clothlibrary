@@ -14,6 +14,15 @@ require_once('salesman_auth.php');
 require_once('cart_price.php');
 require_once('product_stock_helpers.php');
 
+function order_line_is_pcs_mode($productType, $lineMeters, $lineQty) {
+    if ($productType !== null && trim((string)$productType) !== '') {
+        return product_stock_type_is_pcs($productType);
+    }
+    // Fallback for legacy rows where product type is blank:
+    // if meters is present, treat as meter mode; otherwise pieces.
+    return !((float)$lineMeters > 0.0001);
+}
+
 $response = [
     'success' => false,
     'message' => '',
@@ -150,7 +159,8 @@ try {
             $restoreNeedByItemcode[$ic] = ['m' => 0.0, 'pcs' => 0.0, 'product_type' => isset($rr['product_type']) ? $rr['product_type'] : ''];
         }
         $ptype = isset($rr['product_type']) ? $rr['product_type'] : '';
-        if (product_stock_type_is_pcs($ptype)) {
+        $isPcsMode = order_line_is_pcs_mode($ptype, isset($rr['line_meters']) ? $rr['line_meters'] : 0, isset($rr['line_qty']) ? $rr['line_qty'] : 0);
+        if ($isPcsMode) {
             $restoreNeedByItemcode[$ic]['pcs'] += (float)$rr['line_qty'];
         } else {
             $restoreNeedByItemcode[$ic]['m'] += (float)$rr['line_meters'];
@@ -194,6 +204,8 @@ try {
         }
 
         $ptype = isset($existing['product_type']) ? $existing['product_type'] : '';
+        $existingLineMeters = isset($existing['line_meters']) ? (float)$existing['line_meters'] : 0.0;
+        $existingLineQty = isset($existing['line_qty']) ? (float)$existing['line_qty'] : 0.0;
 
         // Parse optional new price
         $setPriceSql = '';
@@ -211,7 +223,7 @@ try {
             $setPriceSql = ", price = ".$priceValSql;
         }
 
-        if (product_stock_type_is_pcs($ptype)) {
+        if (order_line_is_pcs_mode($ptype, $existingLineMeters, $existingLineQty)) {
             $piecesIn = 0.0;
             if (isset($mod['pieces'])) {
                 $piecesIn = (float)$mod['pieces'];
@@ -315,7 +327,8 @@ try {
             $deductNeedByItemcode[$ic] = ['m' => 0.0, 'pcs' => 0.0, 'product_type' => isset($dr['product_type']) ? $dr['product_type'] : ''];
         }
         $ptype = isset($dr['product_type']) ? $dr['product_type'] : '';
-        if (product_stock_type_is_pcs($ptype)) {
+        $isPcsMode = order_line_is_pcs_mode($ptype, isset($dr['line_meters']) ? $dr['line_meters'] : 0, isset($dr['line_qty']) ? $dr['line_qty'] : 0);
+        if ($isPcsMode) {
             $deductNeedByItemcode[$ic]['pcs'] += (float)$dr['line_qty'];
         } else {
             $deductNeedByItemcode[$ic]['m'] += (float)$dr['line_meters'];
