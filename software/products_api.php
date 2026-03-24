@@ -14,13 +14,7 @@ require_once('cart_price.php');
 $response = [
     'success' => false,
     'message' => '',
-    'data'    => [],
-    'pagination' => [
-        'page'       => 1,
-        'per_page'   => 20,
-        'total'      => 0,
-        'total_pages'=> 0
-    ]
+    'data'    => []
 ];
 
 // Require salesman token for this API
@@ -29,19 +23,6 @@ $authSalesman = salesman_require_auth($con);
 // Optional filters
 $location = isset($_GET['location']) ? trim($_GET['location']) : '';
 $search   = isset($_GET['search']) ? trim($_GET['search']) : '';
-
-// Pagination params
-$page     = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$perPage  = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 50;
-if ($page < 1) {
-    $page = 1;
-}
-if ($perPage < 1) {
-    $perPage = 50;
-}
-if ($perPage > 200) {
-    $perPage = 200;
-}
 
 $where = [];
 if ($location !== '') {
@@ -58,23 +39,9 @@ if (!empty($where)) {
     $whereSql = ' WHERE '.implode(' AND ', $where);
 }
 
-$countQuery  = "SELECT COUNT(*) as total FROM indiadata".$whereSql;
-$countResult = mysqli_query($con, $countQuery);
-$total       = 0;
-if ($countResult && mysqli_num_rows($countResult) === 1) {
-    $countRow = mysqli_fetch_assoc($countResult);
-    $total    = (int)$countRow['total'];
-} elseif (!$countResult) {
-    $response['message'] = 'DB error: '.mysqli_error($con);
-    echo json_encode($response);
-    exit;
-}
-
-$offset = ($page - 1) * $perPage;
-
 $catalogPriceSel = indiadata_has_catalog_price_column($con) ? ', price' : '';
 $query  = "SELECT id, itemcode, image, description, width, quantity, type, trn_date".$catalogPriceSel." ";
-$query .= "FROM indiadata".$whereSql." ORDER BY itemcode ASC LIMIT ".$perPage." OFFSET ".$offset;
+$query .= "FROM indiadata".$whereSql." ORDER BY itemcode ASC";
 
 $result = mysqli_query($con, $query);
 
@@ -91,10 +58,6 @@ if ($result) {
     }
     $response['success'] = true;
     $response['message'] = 'Products fetched successfully.';
-    $response['pagination']['page']        = $page;
-    $response['pagination']['per_page']    = $perPage;
-    $response['pagination']['total']       = $total;
-    $response['pagination']['total_pages'] = $total > 0 ? ceil($total / $perPage) : 0;
 } else {
     $response['message'] = 'DB error: '.mysqli_error($con);
 }

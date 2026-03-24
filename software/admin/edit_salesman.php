@@ -1,6 +1,19 @@
 <?php 
 require('db.php');
 include("auth.php");
+
+function ensure_salesman_phone_text_column($con) {
+  $r = mysqli_query($con, "SHOW COLUMNS FROM `salesman` LIKE 'phone'");
+  if (!$r || mysqli_num_rows($r) === 0) {
+    return false;
+  }
+  $col = mysqli_fetch_assoc($r);
+  $type = isset($col['Type']) ? strtolower((string)$col['Type']) : '';
+  if (strpos($type, 'varchar') === false && strpos($type, 'char') === false && strpos($type, 'text') === false) {
+    return mysqli_query($con, "ALTER TABLE `salesman` MODIFY `phone` VARCHAR(30) NOT NULL");
+  }
+  return true;
+}
 $id = isset($_REQUEST['id']) ? (int)$_REQUEST['id'] : 0;
 $query = "SELECT * from salesman where id='".$id."'"; 
 $result = mysqli_query($con,$query);
@@ -55,21 +68,27 @@ $row = mysqli_fetch_assoc($result);
     <?php
       $status = "";
       if(isset($_POST['new']) && $_POST['new']==1) {
+        if (!ensure_salesman_phone_text_column($con)) {
+          $status = "Could not prepare phone field type in DB.";
+          echo '<div class="alert alert-danger" role="alert"><span class="glyphicon glyphicon-warning-sign"></span> '.$status.'</div>';
+        }
         $id = (int)$_REQUEST['id'];
         $first_name = mysqli_real_escape_string($con, stripslashes($_POST['first_name']));
         $last_name  = mysqli_real_escape_string($con, stripslashes($_POST['last_name']));
         $phone      = mysqli_real_escape_string($con, stripslashes($_POST['phone']));
         $password   = mysqli_real_escape_string($con, stripslashes($_POST['password']));
 
-        $update="UPDATE salesman 
-                 SET first_name='".$first_name."',
-                     last_name='".$last_name."',
-                     phone='".$phone."',
-                     password='".$password."'
-                 WHERE id='".$id."'";
-        mysqli_query($con,$update);
-        $status = "Salesman details updated successfully. <a href='view_salesman.php'>Back to salesman list</a>"; 
-        echo '<div class="alert alert-success" role="alert"><span class="glyphicon glyphicon-ok"></span> '.$status.'</div>';
+        if ($status === "") {
+          $update="UPDATE salesman 
+                   SET first_name='".$first_name."',
+                       last_name='".$last_name."',
+                       phone='".$phone."',
+                       password='".$password."'
+                   WHERE id='".$id."'";
+          mysqli_query($con,$update);
+          $status = "Salesman details updated successfully. <a href='view_salesman.php'>Back to salesman list</a>"; 
+          echo '<div class="alert alert-success" role="alert"><span class="glyphicon glyphicon-ok"></span> '.$status.'</div>';
+        }
       } else {
     ?>
     <form class="form-horizontal" name="form" method="post" action="" autocomplete="off">
