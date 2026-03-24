@@ -65,10 +65,10 @@ $host   = $_SERVER['HTTP_HOST'];
 $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 
 $items = [];
-$totalMeters = 0;
-$totalPieces = 0;
+$totalMeters = 0.0;
+$totalPieces = 0.0;
 $hasPcsItems = false;
-$orderTotal = 0.0;
+$totalAmount = 0.0;
 $primaryProductName = null;
 if ($itemsRes) {
     while ($row = mysqli_fetch_assoc($itemsRes)) {
@@ -79,20 +79,23 @@ if ($itemsRes) {
         if ($primaryProductName === null && !empty($row['description'])) {
             $primaryProductName = $row['description'];
         }
-        $totalMeters += $totalM;
+        $isPcs = product_stock_type_is_pcs($ptype);
+        if ($isPcs) {
+            $hasPcsItems = true;
+            $totalPieces += $qty;
+        } else {
+            $totalMeters += $totalM;
+        }
         $priceRow = [
             'total_meters'     => $totalM,
             'line_unit_price'  => isset($row['line_unit_price']) ? $row['line_unit_price'] : null,
         ];
         cart_attach_line_amounts($priceRow, $hasLinePrice);
-        $lt = $priceRow['line_total'];
-        if ($lt !== null) {
-            $orderTotal += (float)$lt;
-        }
-        $isPcs = product_stock_type_is_pcs($ptype);
-        if ($isPcs) {
-            $hasPcsItems = true;
-            $totalPieces += $qty;
+        $lineQty = $isPcs ? $qty : $totalM;
+        $lt = null;
+        if ($priceRow['price'] !== null) {
+            $lt = round(((float)$priceRow['price']) * (float)$lineQty, 2);
+            $totalAmount += (float)$lt;
         }
         $line = [
             'line_id'             => (int)$row['line_id'],
@@ -126,7 +129,8 @@ $response['data'] = [
     'line_count'        => count($items),
     'total_meters'      => round($totalMeters, 2),
     'total_pieces'      => $hasPcsItems ? round($totalPieces, 2) : null,
-    'order_total'       => round($orderTotal, 2),
+    'total_amount'      => round($totalAmount, 2),
+    'order_total'       => round($totalAmount, 2),
     'user_id'           => $order['user_id'],
     'salesman_id'       => (int)$order['salesman_id'],
     'status'            => $order['status'],

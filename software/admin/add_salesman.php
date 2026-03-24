@@ -1,6 +1,19 @@
 <?php
 	require('db.php');
 	require('auth.php');
+
+function ensure_salesman_phone_text_column($con) {
+  $r = mysqli_query($con, "SHOW COLUMNS FROM `salesman` LIKE 'phone'");
+  if (!$r || mysqli_num_rows($r) === 0) {
+    return false;
+  }
+  $col = mysqli_fetch_assoc($r);
+  $type = isset($col['Type']) ? strtolower((string)$col['Type']) : '';
+  if (strpos($type, 'varchar') === false && strpos($type, 'char') === false && strpos($type, 'text') === false) {
+    return mysqli_query($con, "ALTER TABLE `salesman` MODIFY `phone` VARCHAR(30) NOT NULL");
+  }
+  return true;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -48,14 +61,17 @@
     <?php
       if (isset($_POST['first_name'])){
         $status = '';
+        if (!ensure_salesman_phone_text_column($con)) {
+          $status = '<div class="alert alert-danger" role="alert"><span class="glyphicon glyphicon-warning-sign"></span> Could not prepare phone field type in DB.</div>';
+        }
         $first_name = mysqli_real_escape_string($con, stripslashes($_POST['first_name']));
         $last_name  = mysqli_real_escape_string($con, stripslashes($_POST['last_name']));
         $phone      = mysqli_real_escape_string($con, stripslashes($_POST['phone']));
         $password   = mysqli_real_escape_string($con, stripslashes($_POST['password']));
 
-        if($first_name =='' || $last_name =='' || $phone=='' || $password =='' ){
+        if($status === '' && ($first_name =='' || $last_name =='' || $phone=='' || $password =='') ){
           $status = '<div class="alert alert-success" role="alert"><span class="glyphicon glyphicon-ok"></span>Something is missing.</div>';
-        }else{
+        }elseif ($status === ''){
           $query = "INSERT into `salesman` (first_name, last_name, phone, password) VALUES ('$first_name', '$last_name', '$phone', '$password')";
           $result = mysqli_query($con,$query);
           if($result){

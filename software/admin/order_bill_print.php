@@ -115,8 +115,11 @@ if ($itemsRes) {
 $orderTotal = 0.0;
 if ($hasPrice) {
     foreach ($items as $it) {
-        if (isset($it['price']) && $it['price'] !== null && $it['price'] !== '') {
-            $orderTotal += (float)$it['price'];
+        $ptype = isset($it['product_type']) ? $it['product_type'] : '';
+        $isPcs = product_stock_type_is_pcs($ptype);
+        $qtyVal = $isPcs ? (float)$it['quantity'] : (float)$it['meters'];
+        if (isset($it['price']) && $it['price'] !== null && $it['price'] !== '' && $qtyVal > 0.0000001) {
+            $orderTotal += ((float)$it['price'] * $qtyVal);
         }
     }
 }
@@ -160,8 +163,6 @@ $remarks = isset($order['salesman_comment']) ? trim((string)$order['salesman_com
 $deliveryTo = $customerAddress !== '' ? $customerAddress : '';
 $customerDisplay = $customerName !== '' ? $customerName : ('User id: '.(string)$order['user_id']);
 $valoreStr = $hasPrice ? number_format($orderTotal, 2) : '';
-$minItemRows = 19;
-$padRows = max(0, $minItemRows - count($items));
 
 if (!$asRender) {
     if ($download) {
@@ -413,10 +414,10 @@ if (!$asRender) {
         <tr>
           <th>S.No.</th>
           <th>Codice prixe</th>
-          <th>Quality</th>
-          <th>Numero di riferimento / Reference number</th>
+          <th>Description</th>
+          <th>Width</th>
           <th class="th-stack">Quantité<br>Quantity</th>
-          <th class="th-stack">Prezzo <i>p.m.</i><br>Price <i>p.m.</i></th>
+          <th class="th-stack">Prezzo totale<br>Total price</th>
         </tr>
       </thead>
       <tbody>
@@ -427,27 +428,23 @@ if (!$asRender) {
             $isPcs = product_stock_type_is_pcs($ptype);
             $qtyVal = $isPcs ? (float)$it['quantity'] : (float)$it['meters'];
             $unitLabel = $isPcs ? ' pcs' : ' m';
-            $unitPrice = null;
-            if ($hasPrice && $qtyVal > 0.0000001) {
-                $lineTotal = (isset($it['price']) && $it['price'] !== null) ? (float)$it['price'] : 0.0;
-                $unitPrice = $lineTotal / $qtyVal;
+            $linePriceTotal = null;
+            if ($hasPrice && isset($it['price']) && $it['price'] !== null && $it['price'] !== '' && $qtyVal > 0.0000001) {
+                $linePriceTotal = ((float)$it['price'] * $qtyVal);
             }
             $q = isset($it['quality']) ? trim((string)$it['quality']) : '';
-            $ref = isset($it['reference']) ? trim((string)$it['reference']) : '';
-            if ($ref === '' && isset($it['description']) && $it['description'] !== null) {
-                $ref = (string)$it['description'];
-            }
+            $desc = isset($it['description']) ? trim((string)$it['description']) : '';
         ?>
         <tr>
           <td class="data"><?php echo (int)$n++; ?></td>
-          <td class="data left"><?php echo htmlspecialchars((string)$it['itemcode']); ?></td>
+          <td class="data"><?php echo htmlspecialchars((string)$it['itemcode']); ?></td>
+          <td class="data"><?php echo htmlspecialchars($desc); ?></td>
           <td class="data"><?php echo htmlspecialchars($q); ?></td>
-          <td class="data left"><?php echo htmlspecialchars($ref); ?></td>
-          <td class="data right"><?php echo htmlspecialchars(number_format($qtyVal, 2).$unitLabel); ?></td>
-          <td class="data right"><?php echo $unitPrice === null ? '—' : htmlspecialchars(number_format($unitPrice, 2).'/-'); ?></td>
+          <td class="data"><?php echo htmlspecialchars(number_format($qtyVal, 2).$unitLabel); ?></td>
+          <td class="data"><?php echo $linePriceTotal === null ? '—' : htmlspecialchars(number_format($linePriceTotal, 2).'/-'); ?></td>
         </tr>
         <?php } ?>
-        <?php for ($i = 0; $i < $padRows; $i++) { ?>
+        <?php if (count($items) === 0) { ?>
         <tr>
           <td class="data">&nbsp;</td>
           <td class="data">&nbsp;</td>

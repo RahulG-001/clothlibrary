@@ -80,6 +80,9 @@ $host   = $_SERVER['HTTP_HOST'];
 $base   = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 
 $products = [];
+$totalMeters = 0.0;
+$totalPieces = 0.0;
+$totalAmount = 0.0;
 while ($row = mysqli_fetch_assoc($itemsRes)) {
     $img = isset($row['image']) ? $row['image'] : '';
     $row['image_url'] = $img !== '' ? $scheme.'://'.$host.$base.'/item_images/'.$img : '';
@@ -94,18 +97,28 @@ while ($row = mysqli_fetch_assoc($itemsRes)) {
         $row['total_pieces'] = $qty;
         $row['meters'] = $totalM;
         $row['total_meters'] = $totalM;
+        $totalPieces += $qty;
     } else {
         $row['stock_mode'] = 'M';
         $row['meters'] = $totalM;
         $row['total_meters'] = $totalM;
         $row['pieces'] = null;
         $row['total_pieces'] = null;
+        $totalMeters += $totalM;
     }
 
     $row['available_quantity'] = parse_quantity_to_number(isset($row['db_quantity']) ? $row['db_quantity'] : '');
 
     unset($row['order_qty'], $row['order_total_meters'], $row['db_quantity'], $row['product_type']);
     cart_attach_line_amounts($row, $hasLinePrice);
+    // For cart response, line_total should be unit price * ordered qty/meters.
+    if ($row['price'] !== null) {
+        $lineQty = ($row['stock_mode'] === 'PCS') ? (float)$row['pieces'] : (float)$row['meters'];
+        $row['line_total'] = round(((float)$row['price']) * $lineQty, 2);
+        $totalAmount += (float)$row['line_total'];
+    } else {
+        $row['line_total'] = null;
+    }
     $products[] = $row;
 }
 
@@ -119,7 +132,10 @@ $response['data'] = [
     'created_at'        => $order['created_at'],
     'updated_at'        => $order['updated_at'],
     'salesman_comment'  => isset($order['salesman_comment']) ? (string)$order['salesman_comment'] : '',
-    'cart_total'        => cart_sum_line_totals($products),
+    'total_meters'      => round($totalMeters, 2),
+    'total_pieces'      => round($totalPieces, 2),
+    'total_amount'      => round($totalAmount, 2),
+    'cart_total'        => round($totalAmount, 2),
     'products'          => $products
 ];
 
