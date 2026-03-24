@@ -56,7 +56,15 @@ if ($user_id === '' || $salesman_id <= 0) {
 
 $user_id_esc = mysqli_real_escape_string($con, $user_id);
 
-$userCheck = mysqli_query($con, "SELECT id, userid FROM users WHERE id = '".$user_id_esc."' OR userid = '".$user_id_esc."' LIMIT 1");
+$userCheck = mysqli_query(
+    $con,
+    "SELECT id, userid
+     FROM users
+     WHERE id = '".$user_id_esc."' 
+        OR userid = '".$user_id_esc."'
+     ORDER BY (id = '".$user_id_esc."') DESC
+     LIMIT 1"
+);
 if (!$userCheck || mysqli_num_rows($userCheck) === 0) {
     $response['message'] = 'User not found.';
     echo json_encode($response);
@@ -154,7 +162,13 @@ if (empty($parsedItems)) {
     exit;
 }
 
-$orderQuery = "SELECT id FROM sales_order WHERE user_id = '".mysqli_real_escape_string($con, $user_id_stored)."' AND salesman_id = '".$salesman_id."' AND status = 'cart' LIMIT 1";
+$orderQuery = "SELECT id
+                FROM sales_order
+                WHERE user_id = '".mysqli_real_escape_string($con, $user_id_stored)."'
+                  AND salesman_id = '".$salesman_id."'
+                  AND status = 'cart'
+                ORDER BY id DESC
+                LIMIT 1";
 $orderRes   = mysqli_query($con, $orderQuery);
 $order_id   = null;
 

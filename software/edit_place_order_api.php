@@ -126,6 +126,7 @@ foreach (array_keys($mods) as $lid) {
 }
 
 mysqli_begin_transaction($con);
+$order_deleted = false;
 try {
     // 1) Restore stock for the entire order first (reverse previous deduction)
     $restoreRes = mysqli_query(
@@ -269,6 +270,29 @@ try {
         }
     }
 
+    $remainingRes = mysqli_query(
+        $con,
+        "SELECT COUNT(*) AS c FROM sales_order_item WHERE order_id = '".$order_id."'"
+    );
+    if (!$remainingRes) {
+        throw new Exception('Failed to count remaining order lines.');
+    }
+    $remainingRow = mysqli_fetch_assoc($remainingRes);
+    $remainingCount = isset($remainingRow['c']) ? (int)$remainingRow['c'] : 0;
+    if ($remainingCount === 0) {
+        $delOrderRes = mysqli_query(
+            $con,
+            "DELETE FROM sales_order
+             WHERE id = '".$order_id."'
+               AND salesman_id = '".$salesman_id."'
+             LIMIT 1"
+        );
+        if (!$delOrderRes || mysqli_affected_rows($con) !== 1) {
+            throw new Exception('Failed to delete order after removing all lines.');
+        }
+        $order_deleted = true;
+    }
+
     // 3) Deduct stock again for the updated order
     $deductRes = mysqli_query(
         $con,
@@ -338,6 +362,22 @@ try {
     }
 
     mysqli_commit($con);
+
+    if ($order_deleted) {
+        $response['success'] = true;
+        $response['message'] = 'Order removed (no items left). Stock updated.';
+        $response['data'] = [
+            'order_id'      => $order_id,
+            'order_deleted' => true,
+            'status'        => 'deleted',
+            'total_meters'  => 0.0,
+            'total_pieces'  => null,
+            'order_total'   => 0.0,
+            'items'         => []
+        ];
+        echo json_encode($response);
+        exit;
+    }
 
     // 4) Build updated order items response (same shape as order_detail_api)
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
