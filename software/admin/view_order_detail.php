@@ -1,6 +1,7 @@
 <?php
 require('db.php');
 include('auth.php');
+require_once('../product_stock_helpers.php');
 
 function admin_table_exists($con, $table) {
     $t = mysqli_real_escape_string($con, $table);
@@ -40,6 +41,23 @@ if ($orderId <= 0) {
         $sm = mysqli_query($con, "SELECT id, first_name, last_name, phone FROM salesman WHERE id = '".(int)$order['salesman_id']."' LIMIT 1");
         $salesman = ($sm && mysqli_num_rows($sm) === 1) ? mysqli_fetch_assoc($sm) : null;
 
+            $customerName = '';
+            $customerAddress = '';
+            $userIdEsc = mysqli_real_escape_string($con, (string)$order['user_id']);
+            $uRes = mysqli_query(
+                $con,
+                "SELECT name, address
+                 FROM users
+                 WHERE id = '".$userIdEsc."'
+                    OR userid = '".$userIdEsc."'
+                 LIMIT 1"
+            );
+            if ($uRes && mysqli_num_rows($uRes) === 1) {
+                $uRow = mysqli_fetch_assoc($uRes);
+                $customerName = isset($uRow['name']) ? trim((string)$uRow['name']) : '';
+                $customerAddress = isset($uRow['address']) ? trim((string)$uRow['address']) : '';
+            }
+
         $oiSql = "SELECT oi.id AS line_id, oi.itemcode, oi.quantity";
         if ($hasMeters) {
             $oiSql .= ", COALESCE(oi.meters, 0) AS meters";
@@ -52,6 +70,7 @@ if ($orderId <= 0) {
             $oiSql .= ", NULL AS price";
         }
         $oiSql .= ", p.description, p.image
+                   , p.type AS product_type
             FROM sales_order_item oi
             LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
             WHERE oi.order_id = '".$oid."'
@@ -102,6 +121,14 @@ if ($orderId <= 0) {
       $smName = $salesman ? trim($salesman['first_name'].' '.$salesman['last_name']) : '';
   ?>
   <h3>Order #<?php echo (int)$order['id']; ?></h3>
+  <p style="margin-top:10px;">
+    <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="order_bill_pdf.php?id=<?php echo (int)$order['id']; ?>&download=0">
+      Print / Save as PDF
+    </a>
+    <a class="btn btn-sm btn-default" href="order_bill_pdf.php?id=<?php echo (int)$order['id']; ?>&download=1">
+      Download Bill (PDF)
+    </a>
+  </p>
 
   <div class="panel panel-default">
     <div class="panel-heading"><strong>Summary</strong></div>
@@ -137,7 +164,7 @@ if ($orderId <= 0) {
           <th>#</th>
           <th>Item code</th>
           <th>Description</th>
-          <th>Meters</th>
+          <th>Quantity</th>
           <?php if ($hasPrice) { ?><th>Price (line)</th><?php } ?>
         </tr>
       </thead>
@@ -162,7 +189,14 @@ if ($orderId <= 0) {
           <td><?php echo $n++; ?></td>
           <td><?php echo htmlspecialchars($line['itemcode']); ?></td>
           <td><?php echo htmlspecialchars(isset($line['description']) ? $line['description'] : ''); ?></td>
-          <td><?php echo htmlspecialchars(number_format((float)$line['meters'], 2)); ?></td>
+          <td>
+            <?php
+              $ptypeLine = isset($line['product_type']) ? $line['product_type'] : '';
+              $isPcsLine = product_stock_type_is_pcs($ptypeLine);
+              $qtyLine = $isPcsLine ? (float)$line['quantity'] : (float)$line['meters'];
+              echo htmlspecialchars(number_format((float)$qtyLine, 2));
+            ?>
+          </td>
           <?php if ($hasPrice) { ?>
           <td><?php echo $line['price'] !== null && $line['price'] !== '' ? number_format((float)$line['price'], 2) : '—'; ?></td>
           <?php } ?>
@@ -172,6 +206,18 @@ if ($orderId <= 0) {
     </table>
   </div>
   <?php } ?>
+  <?php } ?>
+
+  <?php if ($order) { ?>
+    <h4 style="margin-top:20px;">Client Bill</h4>
+    <div class="panel panel-default">
+      <div class="panel-body" style="padding:0;">
+        <iframe
+          src="order_bill_print.php?id=<?php echo (int)$order['id']; ?>&embed=1"
+          style="width:100%; height:1040px; border:0;"
+        ></iframe>
+      </div>
+    </div>
   <?php } ?>
 </div>
 

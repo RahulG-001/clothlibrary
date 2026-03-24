@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lanificio Cucinello — Order Sheet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --border: 1px solid #000;
+      --label: 8.5pt;
+      --body: 9.5pt;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 12mm;
+      background: #c4c4c4;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      font-size: var(--body);
+      color: #000;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .sheet {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 10mm 12mm 12mm;
+      background: #fff;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .header-img {
+      display: block;
+      width: 100%;
+      max-width: 35%;
+      height: auto;
+      margin: 0 auto 6mm;
+      object-fit: contain;
+    }
+
+    .label {
+      font-size: var(--label);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.25;
+      display: block;
+      margin-bottom: 2mm;
+    }
+
+    .cell {
+      border: var(--border);
+      padding: 2mm 2.5mm 3mm;
+      min-height: 11mm;
+      vertical-align: top;
+    }
+
+    .grid-5 {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border: var(--border);
+      border-bottom: none;
+    }
+
+    .grid-5 .cell {
+      border: none;
+      border-right: var(--border);
+      border-bottom: var(--border);
+    }
+
+    .grid-5 .cell:last-child {
+      border-right: none;
+    }
+
+    .block-full {
+      border: var(--border);
+      border-top: none;
+      padding: 2mm 2.5mm 4mm;
+    }
+
+    .customer-line {
+      margin-top: 8mm;
+      border-bottom: 1px dotted #000;
+      min-height: 6mm;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: var(--border);
+      border-top: none;
+    }
+
+    .grid-2 .cell {
+      border: none;
+      border-right: var(--border);
+      border-bottom: var(--border);
+    }
+
+    .grid-2 .cell:nth-child(2n) {
+      border-right: none;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border: var(--border);
+      border-top: none;
+    }
+
+    .grid-3 .cell {
+      border: none;
+      border-right: var(--border);
+      border-bottom: var(--border);
+    }
+
+    .grid-3 .cell:nth-child(3n) {
+      border-right: none;
+    }
+
+    .grid-2-uneven {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      border: var(--border);
+      border-top: none;
+    }
+
+    .grid-2-uneven .cell {
+      border: none;
+      border-right: var(--border);
+      border-bottom: var(--border);
+    }
+
+    .grid-2-uneven .cell:last-child {
+      border-right: none;
+    }
+
+    .remarks {
+      border: var(--border);
+      border-top: none;
+      min-height: 14mm;
+      padding: 2mm 2.5mm;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0;
+      table-layout: fixed;
+    }
+
+    .items-table th,
+    .items-table td {
+      border: var(--border);
+      padding: 1.5mm 1.5mm;
+      vertical-align: middle;
+      text-align: center;
+      font-size: 8.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .items-table td.data {
+      font-weight: 400;
+      text-transform: none;
+      height: 7mm;
+    }
+
+    .items-table .col-sn {
+      width: 6%;
+    }
+
+    .items-table .col-code {
+      width: 14%;
+    }
+
+    .items-table .col-quality {
+      width: 16%;
+    }
+
+    .items-table .col-ref {
+      width: 38%;
+    }
+
+    .items-table .col-qty {
+      width: 13%;
+    }
+
+    .items-table .col-price {
+      width: 13%;
+    }
+
+    .items-table thead th:nth-child(5),
+    .items-table thead th:nth-child(6) {
+      min-height: 42mm;
+      vertical-align: middle;
+    }
+
+    .vhead {
+      /* writing-mode: vertical-rl; */
+      transform: rotate(180deg);
+      /* white-space: nowrap; */
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 2mm 0;
+    }
+
+    .vhead em {
+      font-style: italic;
+      font-weight: 700;
+    }
+
+    .footer-note {
+      margin-top: 3mm;
+      text-align: right;
+      font-size: 7.5pt;
+      line-height: 1.35;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+
+      .sheet {
+        box-shadow: none;
+        width: 210mm;
+        min-height: auto;
+        margin: 0;
+        padding: 8mm 10mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <header>
+      <img
+        class="header-img"
+        src="logo art 2.png"
+        width="500"
+        height="461"
+        alt="Lanificio Cucinello — crest and company name (from scan)">
+    </header>
+
+    <section class="grid-5" aria-label="Order meta">
+      <div class="cell"><span class="label">N° Cliente / N° Customer</span></div>
+      <div class="cell"><span class="label">Data / Date</span></div>
+      <div class="cell"><span class="label">Stagione / Season</span></div>
+      <div class="cell"><span class="label">Valore / Value</span></div>
+      <div class="cell"><span class="label">Imballaggio / Packing</span></div>
+    </section>
+
+    <section class="block-full" aria-label="Customer">
+      <span class="label">Cliente / Customer</span>
+      <div class="customer-line" aria-hidden="true"></div>
+    </section>
+
+    <section class="grid-2" aria-label="Terms and delivery">
+      <div class="cell"><span class="label">Conditions / Terms</span></div>
+      <div class="cell"><span class="label">Consegnare a / Delivery to</span></div>
+    </section>
+
+    <section class="grid-3" aria-label="Dispatch">
+      <div class="cell"><span class="label">Metodo di spedizione / Method of dispatch</span></div>
+      <div class="cell"><span class="label">Data di consegna / Delivery date</span></div>
+      <div class="cell"><span class="label">Agente / Agent</span></div>
+    </section>
+
+    <section class="grid-2-uneven" aria-label="Patterns and delivery terms">
+      <div class="cell"><span class="label">Modelli / Patterns — Entichette / Lebels</span></div>
+      <div class="cell"><span class="label">Termini di consegna / Delivery terms</span></div>
+    </section>
+
+    <section class="remarks" aria-label="Remarks">
+      <span class="label">Osservazioni / Remarks</span>
+    </section>
+
+    <table class="items-table" aria-label="Line items">
+      <colgroup>
+        <col class="col-sn">
+        <col class="col-code">
+        <col class="col-quality">
+        <col class="col-ref">
+        <col class="col-qty">
+        <col class="col-price">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>S.No.</th>
+          <th>Codice prixe</th>
+          <th>Quality</th>
+          <th>Numero di riferimento / Reference number</th>
+          <th><span class="vhead">Quantité / Quantity</span></th>
+          <th><span class="vhead">Prezzo <em>p.m.</em> / Price <em>p.m.</em></span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+        <tr><td class="data col-sn"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td><td class="data"></td></tr>
+      </tbody>
+    </table>
+
+    <p class="footer-note">
+      Bianca Cucinello - Rosa : Client - Verde : Agente<br>
+      White : Cucinello - Pink : Customer - Green : Agent
+    </p>
+  </main>
+</body>
+</html>
