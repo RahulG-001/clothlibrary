@@ -49,6 +49,27 @@ if (!$orderRes || mysqli_num_rows($orderRes) === 0) {
 $order = mysqli_fetch_assoc($orderRes);
 $oid = (int)$order['order_id'];
 
+$salesmanName = trim((string)($authSalesman['first_name'] ?? '').' '.(string)($authSalesman['last_name'] ?? ''));
+if ($salesmanName === '') {
+    $salesmanName = 'ID '.(int)$order['salesman_id'];
+}
+
+// Fetch user/customer name from users table (users.userid OR users.id)
+$userName = '';
+$userIdEsc = mysqli_real_escape_string($con, (string)$order['user_id']);
+$uRes = mysqli_query(
+    $con,
+    "SELECT name
+     FROM users
+     WHERE id = '".$userIdEsc."'
+        OR userid = '".$userIdEsc."'
+     LIMIT 1"
+);
+if ($uRes && mysqli_num_rows($uRes) === 1) {
+    $uRow = mysqli_fetch_assoc($uRes);
+    $userName = isset($uRow['name']) ? trim((string)$uRow['name']) : '';
+}
+
 $hasLinePrice = sales_order_item_has_price_column($con);
 $priceSel = $hasLinePrice ? ', oi.price AS line_unit_price' : '';
 
@@ -132,7 +153,9 @@ $response['data'] = [
     'total_amount'      => round($totalAmount, 2),
     'order_total'       => round($totalAmount, 2),
     'user_id'           => $order['user_id'],
+    'user_name'        => $userName,
     'salesman_id'       => (int)$order['salesman_id'],
+    'salesman_name'     => $salesmanName,
     'status'            => $order['status'],
     'created_at'        => $order['created_at'],
     'updated_at'        => $order['updated_at'],
