@@ -90,6 +90,10 @@ include("auth.php"); //include auth.php file on all secure pages
             <button type="button" class="btn btn-info">View Orders</button>
             </a></p>
 
+          <p style="padding-bottom:5px; margin-bottom:0px;"><a href="salesman_analytics.php">
+            <button type="button" class="btn btn-info">Salesman Analytics</button>
+            </a></p>
+
         </div>
       </div>
     </div>
