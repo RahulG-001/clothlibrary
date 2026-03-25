@@ -56,7 +56,9 @@ include("auth.php");
             <th>First Name</th>
             <th>Last Name</th>
             <th>Phone Number</th>
+            <th>Photo</th>
             <th>Password</th>
+            <th>&nbsp;</th>
             <th>&nbsp;</th>
           </tr>
         </thead>
@@ -69,6 +71,18 @@ include("auth.php");
             <td><?php echo $row["first_name"]; ?></td>
             <td><?php echo $row["last_name"]; ?></td>
             <td><?php echo $row["phone"]; ?></td>
+            <td>
+              <?php
+                $img = isset($row['profile_image']) ? trim((string)$row['profile_image']) : '';
+                if ($img !== '') {
+                  // Saved under: software/salesman_profile_images/
+                  $src = '../salesman_profile_images/'.$img;
+                  echo '<img src="'.$src.'" width="40" height="40" style="object-fit:cover; border-radius:4px;" alt="Salesman photo" />';
+                } else {
+                  echo '<span style="color:#999;">N/A</span>';
+                }
+              ?>
+            </td>
             <td><?php echo $row["password"]; ?></td>
             <td><a href="edit_salesman.php?id=<?php echo $row["id"]; ?>"><span class="glyphicon glyphicon-edit"></span>Edit</a></td>
             <td><a onclick="return checkDelete()" href="delete_salesman.php?id=<?php echo $row["id"]; ?>"><span class="glyphicon glyphicon glyphicon-remove"></span> Delete</a></td>

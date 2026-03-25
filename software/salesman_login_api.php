@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require('admin/db.php');
+require_once(__DIR__.'/salesman_auth.php');
 
 $response = [
     'success' => false,
@@ -16,7 +17,6 @@ $response = [
     'data'    => null
 ];
 
-// Accept JSON body or form-data
 $input = [];
 if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
     $raw = file_get_contents('php://input');
@@ -40,7 +40,8 @@ if ($phone === '' || $password === '') {
 $phoneEsc    = mysqli_real_escape_string($con, $phone);
 $passwordEsc = mysqli_real_escape_string($con, $password);
 
-$query  = "SELECT id, first_name, last_name, phone FROM salesman ";
+$profileSel = salesman_table_has_profile_image($con) ? ', profile_image' : '';
+$query  = "SELECT id, first_name, last_name, phone".$profileSel." FROM salesman ";
 $query .= "WHERE phone = '".$phoneEsc."' AND password = '".$passwordEsc."' ";
 $query .= "LIMIT 1";
 
@@ -48,6 +49,9 @@ $result = mysqli_query($con, $query);
 
 if ($result && mysqli_num_rows($result) === 1) {
     $salesman = mysqli_fetch_assoc($result);
+    if (!array_key_exists('profile_image', $salesman)) {
+        $salesman['profile_image'] = null;
+    }
     $salesmanId = (int)$salesman['id'];
 
     // Create token (30 days)

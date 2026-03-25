@@ -1,5 +1,18 @@
 <?php
 /**
+ * Whether `salesman.profile_image` exists (cached per request).
+ */
+function salesman_table_has_profile_image($con) {
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    $r = mysqli_query($con, "SHOW COLUMNS FROM `salesman` LIKE 'profile_image'");
+    $cache = ($r && mysqli_num_rows($r) > 0);
+    return $cache;
+}
+
+/**
  * Salesman token auth helper.
  *
  * Accepts token from:
@@ -91,7 +104,8 @@ function salesman_require_auth($con) {
     $row = mysqli_fetch_assoc($res);
     $sid = (int)$row['salesman_id'];
 
-    $sres = mysqli_query($con, "SELECT id, first_name, last_name, phone, password FROM salesman WHERE id = '".$sid."' LIMIT 1");
+    $profileSel = salesman_table_has_profile_image($con) ? ', profile_image' : '';
+    $sres = mysqli_query($con, "SELECT id, first_name, last_name, phone, password".$profileSel." FROM salesman WHERE id = '".$sid."' LIMIT 1");
     if (!$sres || mysqli_num_rows($sres) === 0) {
         echo json_encode([
             'success' => false,
@@ -100,6 +114,10 @@ function salesman_require_auth($con) {
         exit;
     }
 
-    return mysqli_fetch_assoc($sres);
+    $row = mysqli_fetch_assoc($sres);
+    if (!array_key_exists('profile_image', $row)) {
+        $row['profile_image'] = null;
+    }
+    return $row;
 }
 

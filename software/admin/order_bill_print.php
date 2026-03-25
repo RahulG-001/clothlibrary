@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once(__DIR__.'/../product_stock_helpers.php');
+require_once(__DIR__.'/../sales_order_meta_helpers.php');
 
 function admin_column_exists($con, $table, $column) {
     $t = mysqli_real_escape_string($con, $table);
@@ -160,7 +161,15 @@ $dateStr = $created !== '' ? date('d/m/Y', strtotime($created)) : '';
 $customerName = isset($order['customer_name']) ? trim((string)$order['customer_name']) : '';
 $customerAddress = isset($order['customer_address']) ? trim((string)$order['customer_address']) : '';
 $remarks = isset($order['salesman_comment']) ? trim((string)$order['salesman_comment']) : '';
-$deliveryTo = $customerAddress !== '' ? $customerAddress : '';
+$orderMeta = sales_order_meta_fetch($con, $orderId);
+$packing = isset($orderMeta['packing']) ? (string)$orderMeta['packing'] : '';
+$conditionsText = isset($orderMeta['conditions_text']) ? (string)$orderMeta['conditions_text'] : '';
+$deliveryToMeta = isset($orderMeta['delivery_to']) ? (string)$orderMeta['delivery_to'] : '';
+$dispatchMethod = isset($orderMeta['dispatch_method']) ? (string)$orderMeta['dispatch_method'] : '';
+$deliveryDateText = isset($orderMeta['delivery_date']) ? (string)$orderMeta['delivery_date'] : '';
+$patternsLabels = isset($orderMeta['patterns_labels']) ? (string)$orderMeta['patterns_labels'] : '';
+$deliveryTerms = isset($orderMeta['delivery_terms']) ? (string)$orderMeta['delivery_terms'] : '';
+$deliveryTo = $deliveryToMeta !== '' ? $deliveryToMeta : ($customerAddress !== '' ? $customerAddress : '');
 $customerDisplay = $customerName !== '' ? $customerName : ('User id: '.(string)$order['user_id']);
 $valoreStr = $hasPrice ? number_format($orderTotal, 2) : '';
 
@@ -350,7 +359,7 @@ if (!$asRender) {
         </td>
         <td style="width:20%;">
           <span class="label">Imballaggio / Packing</span>
-          <div class="val"></div>
+          <div class="val"><?php echo htmlspecialchars($packing); ?></div>
         </td>
       </tr>
       <tr>
@@ -362,7 +371,7 @@ if (!$asRender) {
       <tr>  
         <td colspan="2" style="width:50%;">
           <span class="label">Conditions / Terms</span>
-          <div class="val"></div>
+          <div class="val"><?php echo htmlspecialchars($conditionsText); ?></div>
         </td>
         <td colspan="3" style="width:50%;">
           <span class="label">Consegnare a / Delivery to</span>
@@ -372,11 +381,11 @@ if (!$asRender) {
       <tr>
         <td colspan="2" style="width:34%;">
           <span class="label">Metodo di spedizione / Method of dispatch</span>
-          <div class="val"></div>
+          <div class="val"><?php echo htmlspecialchars($dispatchMethod); ?></div>
         </td>
         <td style="width:33%;">
           <span class="label">Data di consegna / Delivery date</span>
-          <div class="val"></div>
+          <div class="val"><?php echo htmlspecialchars($deliveryDateText); ?></div>
         </td>
         <td colspan="2" style="width:33%;">
           <span class="label">Agente / Agent</span>
@@ -386,11 +395,11 @@ if (!$asRender) {
       <tr>
         <td colspan="3" style="width:60%;">
           <span class="label">Modelli / Patterns — Entichette / Lebels</span>
-          <div class="val"></div>
+          <div class="val"><?php echo htmlspecialchars($patternsLabels); ?></div>
         </td>
         <td colspan="2" style="width:40%;">
           <span class="label">Termini di consegna / Delivery terms</span>
-          <div class="val"></div>
+          <div class="val"><?php echo htmlspecialchars($deliveryTerms); ?></div>
         </td>
       </tr>
       <tr>
@@ -403,11 +412,12 @@ if (!$asRender) {
 
     <table class="items-table" cellspacing="0" cellpadding="0">
       <colgroup>
-        <col style="width:6%;" />
+        <col style="width:5%;" />
+        <col style="width:12%;" />
         <col style="width:14%;" />
-        <col style="width:16%;" />
-        <col style="width:38%;" />
-        <col style="width:13%;" />
+        <col style="width:32%;" />
+        <col style="width:12%;" />
+        <col style="width:12%;" />
         <col style="width:13%;" />
       </colgroup>
       <thead>
@@ -417,6 +427,7 @@ if (!$asRender) {
           <th>Description</th>
           <th>Width</th>
           <th class="th-stack">Quantité<br>Quantity</th>
+          <th class="th-stack">Prezzo agente<br>Salesman price</th>
           <th class="th-stack">Prezzo totale<br>Total price</th>
         </tr>
       </thead>
@@ -432,6 +443,10 @@ if (!$asRender) {
             if ($hasPrice && isset($it['price']) && $it['price'] !== null && $it['price'] !== '' && $qtyVal > 0.0000001) {
                 $linePriceTotal = ((float)$it['price'] * $qtyVal);
             }
+            $salesmanUnitStr = '—';
+            if ($hasPrice && isset($it['price']) && $it['price'] !== null && $it['price'] !== '') {
+                $salesmanUnitStr = number_format((float)$it['price'], 2).'/-';
+            }
             $q = isset($it['quality']) ? trim((string)$it['quality']) : '';
             $desc = isset($it['description']) ? trim((string)$it['description']) : '';
         ?>
@@ -441,11 +456,13 @@ if (!$asRender) {
           <td class="data"><?php echo htmlspecialchars($desc); ?></td>
           <td class="data"><?php echo htmlspecialchars($q); ?></td>
           <td class="data"><?php echo htmlspecialchars(number_format($qtyVal, 2).$unitLabel); ?></td>
+          <td class="data"><?php echo htmlspecialchars($salesmanUnitStr); ?></td>
           <td class="data"><?php echo $linePriceTotal === null ? '—' : htmlspecialchars(number_format($linePriceTotal, 2).'/-'); ?></td>
         </tr>
         <?php } ?>
         <?php if (count($items) === 0) { ?>
         <tr>
+          <td class="data">&nbsp;</td>
           <td class="data">&nbsp;</td>
           <td class="data">&nbsp;</td>
           <td class="data">&nbsp;</td>

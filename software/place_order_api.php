@@ -12,6 +12,7 @@ require('admin/db.php');
 require_once('quantity_parser.php');
 require_once('salesman_auth.php');
 require_once('sales_order_helpers.php');
+require_once('sales_order_meta_helpers.php');
 require_once('cart_price.php');
 require_once('product_stock_helpers.php');
 
@@ -53,6 +54,9 @@ $rawComment = trim($rawComment);
 if (strlen($rawComment) > 8000) {
     $rawComment = substr($rawComment, 0, 8000);
 }
+$orderMeta = sales_order_meta_from_input($input);
+$orderMetaSaved = false;
+$orderMetaWarning = '';
 
 $hasCommentCol = sales_order_has_salesman_comment_column($con);
 if ($rawComment !== '' && !$hasCommentCol) {
@@ -160,6 +164,21 @@ if (!$upOrder) {
     exit;
 }
 
+if (sales_order_meta_has_any($orderMeta)) {
+    if (!sales_order_meta_table_exists($con)) {
+        // Optional block: do not fail order placement if meta table is missing.
+        $orderMetaWarning = 'Order placed, but extra bill fields were not saved (sales_order_meta table missing).';
+    } else {
+        $okMeta = sales_order_meta_upsert($con, $order_id, $orderMeta);
+        if (!$okMeta) {
+            // Optional block: do not fail order placement if meta save fails.
+            $orderMetaWarning = 'Order placed, but extra bill fields were not saved.';
+        } else {
+            $orderMetaSaved = true;
+        }
+    }
+}
+
 mysqli_commit($con);
 
 $orderTotal = null;
@@ -181,7 +200,12 @@ $response['data'] = [
     'status'            => 'placed',
     'salesman_comment'  => $hasCommentCol ? $rawComment : '',
     'order_total'       => $orderTotal,
+    'order_meta'        => $orderMeta,
+    'order_meta_saved'  => $orderMetaSaved,
 ];
+if ($orderMetaWarning !== '') {
+    $response['meta_warning'] = $orderMetaWarning;
+}
 
 echo json_encode($response);
 exit;
