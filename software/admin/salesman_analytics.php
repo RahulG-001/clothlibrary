@@ -96,74 +96,57 @@ if ($canCompute) {
 
     if ($view === 'daily') {
         $periodStart = new DateTime('today');
-        $periodStart->modify('-29 days');
         $periodEnd = new DateTime('tomorrow');
         $rangeStartSql = $periodStart->format('Y-m-d').' 00:00:00';
         $rangeEndSql   = $periodEnd->format('Y-m-d').' 00:00:00';
-        $cursor = clone $periodStart;
-        while ($cursor < $periodEnd) {
-            $key = $cursor->format('Y-m-d');
-            $detailKeys[] = $key;
-            $detailLabels[] = normalize_day_label($cursor);
-            $detailOrderValues[$key] = 0.0;
-            $detailPcs[$key] = 0.0;
-            $detailMeters[$key] = 0.0;
-            $detailOrdersCount[$key] = 0;
-            $cursor->modify('+1 day');
-        }
+        $key = $periodStart->format('Y-m-d');
+        $detailKeys[] = $key;
+        $detailLabels[] = normalize_day_label($periodStart);
+        $detailOrderValues[$key] = 0.0;
+        $detailPcs[$key] = 0.0;
+        $detailMeters[$key] = 0.0;
+        $detailOrdersCount[$key] = 0;
         $periodKeyExpr = "DATE_FORMAT(o.created_at, '%Y-%m-%d')";
     } elseif ($view === 'weekly') {
         $periodStart = new DateTime('monday this week');
         $periodStart->setTime(0, 0, 0);
-        $periodStart->modify('-11 weeks');
         $periodEnd = new DateTime('monday next week');
         $periodEnd->setTime(0, 0, 0);
         $rangeStartSql = $periodStart->format('Y-m-d').' 00:00:00';
         $rangeEndSql   = $periodEnd->format('Y-m-d').' 00:00:00';
-        $cursor = clone $periodStart;
-        while ($cursor < $periodEnd) {
-            $key = $cursor->format('o-W');
-            $detailKeys[] = $key;
-            $detailLabels[] = normalize_week_label_from_key($key);
-            $detailOrderValues[$key] = 0.0;
-            $detailPcs[$key] = 0.0;
-            $detailMeters[$key] = 0.0;
-            $detailOrdersCount[$key] = 0;
-            $cursor->modify('+1 week');
-        }
+        $key = $periodStart->format('o-W');
+        $detailKeys[] = $key;
+        $detailLabels[] = normalize_week_label_from_key($key);
+        $detailOrderValues[$key] = 0.0;
+        $detailPcs[$key] = 0.0;
+        $detailMeters[$key] = 0.0;
+        $detailOrdersCount[$key] = 0;
         $periodKeyExpr = "DATE_FORMAT(o.created_at, '%x-%v')";
     } elseif ($view === 'monthly') {
         $periodStart = new DateTime('first day of this month');
-        $periodStart->modify('-11 months');
         $periodEnd = new DateTime('first day of next month');
         $rangeStartSql = $periodStart->format('Y-m-d').' 00:00:00';
         $rangeEndSql   = $periodEnd->format('Y-m-d').' 00:00:00';
-        $cursor = clone $periodStart;
-        while ($cursor < $periodEnd) {
-            $key = $cursor->format('Y-m');
-            $detailKeys[] = $key;
-            $detailLabels[] = normalize_month_label($cursor);
-            $detailOrderValues[$key] = 0.0;
-            $detailPcs[$key] = 0.0;
-            $detailMeters[$key] = 0.0;
-            $detailOrdersCount[$key] = 0;
-            $cursor->modify('+1 month');
-        }
+        $key = $periodStart->format('Y-m');
+        $detailKeys[] = $key;
+        $detailLabels[] = normalize_month_label($periodStart);
+        $detailOrderValues[$key] = 0.0;
+        $detailPcs[$key] = 0.0;
+        $detailMeters[$key] = 0.0;
+        $detailOrdersCount[$key] = 0;
         $periodKeyExpr = "DATE_FORMAT(o.created_at, '%Y-%m')";
     } else {
         $thisYear = (int)$now->format('Y');
-        $minYear = $thisYear - 9;
+        $minYear = $thisYear;
         $rangeStartSql = $minYear.'-01-01 00:00:00';
         $rangeEndSql   = ($thisYear + 1).'-01-01 00:00:00';
-        for ($y = $minYear; $y <= $thisYear; $y++) {
-            $key = (string)$y;
-            $detailKeys[] = $key;
-            $detailLabels[] = $key;
-            $detailOrderValues[$key] = 0.0;
-            $detailPcs[$key] = 0.0;
-            $detailMeters[$key] = 0.0;
-            $detailOrdersCount[$key] = 0;
-        }
+        $key = (string)$thisYear;
+        $detailKeys[] = $key;
+        $detailLabels[] = $key;
+        $detailOrderValues[$key] = 0.0;
+        $detailPcs[$key] = 0.0;
+        $detailMeters[$key] = 0.0;
+        $detailOrdersCount[$key] = 0;
         $periodKeyExpr = "YEAR(o.created_at)";
     }
 

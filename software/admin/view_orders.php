@@ -28,13 +28,15 @@ if (!admin_table_exists($con, 'sales_order')) {
         SELECT o.id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at,
                TRIM(CONCAT(COALESCE(s.first_name, ''), ' ', COALESCE(s.last_name, ''))) AS salesman_name,
                s.phone AS salesman_phone,
+               TRIM(COALESCE(u.name, '')) AS customer_name,
                ".$sumExpr." AS order_total
         FROM sales_order o
         LEFT JOIN salesman s ON s.id = o.salesman_id
+        LEFT JOIN users u ON (u.id = o.user_id OR u.userid = o.user_id)
         LEFT JOIN sales_order_item oi ON oi.order_id = o.id
         WHERE LOWER(TRIM(o.status)) = 'placed'
         GROUP BY o.id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at,
-                 s.first_name, s.last_name, s.phone
+                 s.first_name, s.last_name, s.phone, u.name
         ORDER BY o.id DESC
     ";
     $orders = mysqli_query($con, $sql);
@@ -94,7 +96,13 @@ if (!admin_table_exists($con, 'sales_order')) {
         <tr>
           <td><?php echo (int)$row['id']; ?></td>
           <td><?php echo htmlspecialchars($row['status']); ?></td>
-          <td><?php echo htmlspecialchars($row['user_id']); ?></td>
+          <td>
+            <?php
+              $custName = isset($row['customer_name']) ? trim((string)$row['customer_name']) : '';
+              $custDisplay = $custName !== '' ? $custName : '—';
+            ?>
+            <?php echo htmlspecialchars($custDisplay); ?>
+          </td>
           <td><?php echo htmlspecialchars(trim($row['salesman_name']) !== '' ? $row['salesman_name'] : ('#'.$row['salesman_id'])); ?>
               <?php if (!empty($row['salesman_phone'])) { ?><br><small><?php echo htmlspecialchars($row['salesman_phone']); ?></small><?php } ?>
           </td>
