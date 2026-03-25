@@ -111,6 +111,7 @@ $ordersByKey = [];
 
 $now = new DateTime('now');
 if ($view === 'daily') {
+    // Breakdown: last 30 days (chart/breakdown series stays as-is; totals are filtered later)
     $dayStart = new DateTime('today');
     $dayStart->modify('-29 days');
     $dayEnd = new DateTime('tomorrow');
@@ -149,6 +150,7 @@ if ($view === 'daily') {
       ORDER BY period_key ASC
     ";
 } elseif ($view === 'weekly') {
+    // Breakdown: last 12 weeks
     $weekStart = new DateTime('monday this week');
     $weekStart->setTime(0, 0, 0);
     $weekStart->modify('-11 weeks');
@@ -189,6 +191,7 @@ if ($view === 'daily') {
       ORDER BY period_key ASC
     ";
 } elseif ($view === 'monthly') {
+    // Breakdown: last 12 months
     $monthStart = new DateTime('first day of this month');
     $monthStart->modify('-11 months');
     $monthEnd = new DateTime('first day of next month');
@@ -227,6 +230,7 @@ if ($view === 'daily') {
       ORDER BY period_key ASC
     ";
 } else {
+    // Breakdown: last 10 years (yearly)
     $thisYear = (int)$now->format('Y');
     $minYear = $thisYear - 9;
     for ($y = $minYear; $y <= $thisYear; $y++) {
@@ -314,9 +318,63 @@ for ($i = 0; $i < count($detailKeys); $i++) {
     ];
 }
 
-$totals['order_value'] = round((float)$totals['order_value'], 2);
-$totals['pcs'] = round((float)$totals['pcs'], 2);
-$totals['meters'] = round((float)$totals['meters'], 2);
+// Override totals ONLY for the current period:
+// daily => today, weekly => this week, monthly => this month, yearly => this year.
+$totStartSql = '';
+$totEndSql = '';
+if ($view === 'daily') {
+    $ts = new DateTime('today');
+    $te = new DateTime('tomorrow');
+    $totStartSql = $ts->format('Y-m-d').' 00:00:00';
+    $totEndSql = $te->format('Y-m-d').' 00:00:00';
+} elseif ($view === 'weekly') {
+    $ts = new DateTime('monday this week');
+    $ts->setTime(0, 0, 0);
+    $te = new DateTime('monday next week');
+    $te->setTime(0, 0, 0);
+    $totStartSql = $ts->format('Y-m-d').' 00:00:00';
+    $totEndSql = $te->format('Y-m-d').' 00:00:00';
+} elseif ($view === 'monthly') {
+    $ts = new DateTime('first day of this month');
+    $te = new DateTime('first day of next month');
+    $totStartSql = $ts->format('Y-m-d').' 00:00:00';
+    $totEndSql = $te->format('Y-m-d').' 00:00:00';
+} else {
+    $year = (int)$now->format('Y');
+    $totStartSql = $year.'-01-01 00:00:00';
+    $totEndSql = ($year + 1).'-01-01 00:00:00';
+}
+
+$orderValueTotalExpr = "SUM(COALESCE(oi.price,0) * (CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE ".$metersExpr." END))";
+$totSql = "
+  SELECT
+    COUNT(DISTINCT o.id) AS orders_count,
+    ".$orderValueTotalExpr." AS order_value,
+    ".$pcsAggExpr." AS pcs_sold,
+    ".$metersAggExpr." AS meters_sold
+  FROM sales_order o
+  INNER JOIN sales_order_item oi ON oi.order_id = o.id
+  INNER JOIN indiadata p ON p.itemcode = oi.itemcode
+  WHERE
+    o.salesman_id = '".(int)$salesmanId."'
+    AND LOWER(TRIM(o.status)) = 'placed'
+    AND o.created_at >= '".mysqli_real_escape_string($con, $totStartSql)."'
+    AND o.created_at <  '".mysqli_real_escape_string($con, $totEndSql)."'
+";
+
+$totRes = mysqli_query($con, $totSql);
+if ($totRes && mysqli_num_rows($totRes) === 1) {
+    $tr = mysqli_fetch_assoc($totRes);
+    $totals['order_value'] = round((float)($tr['order_value'] ?? 0), 2);
+    $totals['pcs'] = round((float)($tr['pcs_sold'] ?? 0), 2);
+    $totals['meters'] = round((float)($tr['meters_sold'] ?? 0), 2);
+    $totals['orders'] = (int)($tr['orders_count'] ?? 0);
+} else {
+    // Fallback to breakdown-summed values
+    $totals['order_value'] = round((float)$totals['order_value'], 2);
+    $totals['pcs'] = round((float)$totals['pcs'], 2);
+    $totals['meters'] = round((float)$totals['meters'], 2);
+}
 
 $salesmanName = trim((string)($salesman['first_name'] ?? '').' '.(string)($salesman['last_name'] ?? ''));
 if ($salesmanName === '') {
@@ -332,6 +390,8 @@ $response['data'] = [
         'name' => $salesmanName,
     ],
     'totals' => $totals,
+    'totals_range_start' => $totStartSql,
+    'totals_range_end'   => $totEndSql,
     'chart' => [
         'labels' => $labels,
         'order_value' => $chartOrderValues,

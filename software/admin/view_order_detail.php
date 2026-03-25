@@ -135,7 +135,9 @@ if ($orderId <= 0) {
     <div class="panel-body">
       <table class="table table-condensed" style="margin-bottom:0;">
         <tr><th style="width:180px;">Status</th><td><?php echo htmlspecialchars($order['status']); ?></td></tr>
-        <tr><th>Customer (user id)</th><td><?php echo htmlspecialchars($order['user_id']); ?></td></tr>
+        <tr><th>Customer</th><td>
+          <?php echo htmlspecialchars($customerName !== '' ? $customerName : '—'); ?>
+        </td></tr>
         <tr><th>Salesman</th><td>
           <?php echo $smName !== '' ? htmlspecialchars($smName) : htmlspecialchars('ID '.$order['salesman_id']); ?>
           <?php if ($salesman && !empty($salesman['phone'])) { ?><br><small>Phone: <?php echo htmlspecialchars($salesman['phone']); ?></small><?php } ?>

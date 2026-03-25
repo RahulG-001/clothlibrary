@@ -25,8 +25,26 @@ $authSalesman = salesman_require_auth($con);
 $hasLinePrice = sales_order_item_has_price_column($con);
 
 $order_id   = isset($_GET['order_id']) ? (int)$_GET['order_id'] : 0;
-$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search = isset($_GET['search']) ? trim((string)$_GET['search']) : '';
 $salesman_id = (int)$authSalesman['id'];
+
+// Optional: allow Postman to send `search` in JSON/form body.
+if ($search === '' && $_SERVER['REQUEST_METHOD'] !== 'OPTIONS') {
+    $input = [];
+    $isJson = isset($_SERVER['CONTENT_TYPE']) && strpos((string)$_SERVER['CONTENT_TYPE'], 'application/json') !== false;
+    if ($isJson) {
+        $raw = file_get_contents('php://input');
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $input = $decoded;
+        }
+    } else {
+        $input = $_POST;
+    }
+    if (isset($input['search'])) {
+        $search = trim((string)$input['search']);
+    }
+}
 
 if ($salesman_id <= 0) {
     $response['message'] = 'Authenticate as a salesman.';
@@ -43,6 +61,10 @@ if ($salesman_id > 0) {
 }
 if ($search !== '') {
     $searchEsc = mysqli_real_escape_string($con, $search);
+    // Normalize for comparison: remove all whitespace and lower-case.
+    $searchNormalized = strtolower((string)$search);
+    $searchNormalized = preg_replace('/\s+/', '', $searchNormalized);
+    $searchNormalizedEsc = mysqli_real_escape_string($con, $searchNormalized);
     $where[] = "(CAST(o.id AS CHAR) LIKE '%".$searchEsc."%' OR EXISTS (
         SELECT 1
         FROM sales_order_item soi
@@ -51,6 +73,24 @@ if ($search !== '') {
           AND (
               soi.itemcode LIKE '%".$searchEsc."%'
               OR ip.description LIKE '%".$searchEsc."%'
+          )
+    ) OR EXISTS (
+        SELECT 1
+        FROM users u
+        WHERE (u.id = o.user_id OR u.userid = o.user_id)
+          AND (
+              REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(LOWER(TRIM(u.name)), ' ', ''),
+                      CHAR(160), ''
+                      ),
+                    CHAR(9), ''
+                    ),
+                  CHAR(10), ''
+                  ) LIKE '%".$searchNormalizedEsc."%'
+              OR u.userid LIKE '%".$searchEsc."%'
+              OR CAST(u.id AS CHAR) LIKE '%".$searchEsc."%'
           )
     ))";
 }

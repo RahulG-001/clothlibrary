@@ -33,6 +33,19 @@ function bill_rel_file_url($relFromAdmin) {
     return 'file://'.str_replace('\\', '/', $abs);
 }
 
+/**
+ * Format money values without trailing ".00".
+ * Example: 1000.00 -> "1000", 1000.50 -> "1000.5"
+ */
+function bill_money_trim_decimals($v) {
+    if ($v === null || $v === '') {
+        return '—';
+    }
+    $s = number_format((float)$v, 2, '.', '');
+    $s = rtrim(rtrim($s, '0'), '.');
+    return $s;
+}
+
 $orderId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $embed   = isset($_GET['embed']) ? (int)$_GET['embed'] : 0;
 $download = isset($_GET['download']) ? (bool)$_GET['download'] : false;
@@ -362,12 +375,12 @@ if (!$asRender) {
           <div class="val"><?php echo htmlspecialchars($packing); ?></div>
         </td>
       </tr>
-      <tr>
+      <!-- <tr>
         <td colspan="5">
           <span class="label">Cliente / Customer</span>
           <div class="customer-line val"><?php echo htmlspecialchars($customerDisplay); ?></div>
         </td>
-      </tr>
+      </tr> -->
       <tr>  
         <td colspan="2" style="width:50%;">
           <span class="label">Conditions / Terms</span>
@@ -427,7 +440,7 @@ if (!$asRender) {
           <th>Description</th>
           <th>Width</th>
           <th class="th-stack">Quantité<br>Quantity</th>
-          <th class="th-stack">Prezzo agente<br>Salesman price</th>
+          <th class="th-stack">Prix ​​au mètre / à la pièce<br>Price per Mtr/Pcs</th>
           <th class="th-stack">Prezzo totale<br>Total price</th>
         </tr>
       </thead>
@@ -445,7 +458,7 @@ if (!$asRender) {
             }
             $salesmanUnitStr = '—';
             if ($hasPrice && isset($it['price']) && $it['price'] !== null && $it['price'] !== '') {
-                $salesmanUnitStr = number_format((float)$it['price'], 2).'/-';
+                $salesmanUnitStr = bill_money_trim_decimals($it['price']);
             }
             $q = isset($it['quality']) ? trim((string)$it['quality']) : '';
             $desc = isset($it['description']) ? trim((string)$it['description']) : '';
@@ -457,7 +470,7 @@ if (!$asRender) {
           <td class="data"><?php echo htmlspecialchars($q); ?></td>
           <td class="data"><?php echo htmlspecialchars(number_format($qtyVal, 2).$unitLabel); ?></td>
           <td class="data"><?php echo htmlspecialchars($salesmanUnitStr); ?></td>
-          <td class="data"><?php echo $linePriceTotal === null ? '—' : htmlspecialchars(number_format($linePriceTotal, 2).'/-'); ?></td>
+          <td class="data"><?php echo $linePriceTotal === null ? '—' : htmlspecialchars(bill_money_trim_decimals($linePriceTotal)); ?></td>
         </tr>
         <?php } ?>
         <?php if (count($items) === 0) { ?>
