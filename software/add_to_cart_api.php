@@ -48,30 +48,57 @@ if (isset($rawItems['itemcode']) && !isset($rawItems[0])) {
     $items = array_values($rawItems);
 }
 
-if ($user_id === '' || $salesman_id <= 0) {
-    $response['message'] = 'user_id and salesman_id are required.';
+if ($salesman_id <= 0) {
+    $response['message'] = 'salesman auth required.';
     echo json_encode($response);
     exit;
 }
 
-$user_id_esc = mysqli_real_escape_string($con, $user_id);
-
-$userCheck = mysqli_query(
-    $con,
-    "SELECT id, userid
-     FROM users
-     WHERE id = '".$user_id_esc."' 
-        OR userid = '".$user_id_esc."'
-     ORDER BY (id = '".$user_id_esc."') DESC
-     LIMIT 1"
-);
-if (!$userCheck || mysqli_num_rows($userCheck) === 0) {
-    $response['message'] = 'User not found.';
-    echo json_encode($response);
-    exit;
+// Allow cart build without selecting/creating a customer.
+// When user_id is empty, we create/reuse a cart where sales_order.user_id is NULL (or '' if not nullable).
+$salesOrderUserIdNullable = false;
+$userIdColCheck = mysqli_query($con, "SHOW COLUMNS FROM sales_order LIKE 'user_id' LIMIT 1");
+if ($userIdColCheck && mysqli_num_rows($userIdColCheck) === 1) {
+    $cRow = mysqli_fetch_assoc($userIdColCheck);
+    $salesOrderUserIdNullable = isset($cRow['Null']) && strtolower((string)$cRow['Null']) === 'yes';
 }
-$userRow = mysqli_fetch_assoc($userCheck);
-$user_id_stored = isset($userRow['userid']) ? $userRow['userid'] : $user_id;
+
+$userWhereClause = '';
+$userInsertSql   = '';
+
+if ($user_id === '') {
+    $user_id_stored = null;
+    if ($salesOrderUserIdNullable) {
+        $userWhereClause = 'user_id IS NULL';
+        $userInsertSql   = 'NULL';
+    } else {
+        $user_id_stored = '';
+        $user_id_empty_esc = mysqli_real_escape_string($con, $user_id_stored);
+        $userWhereClause = "user_id = '".$user_id_empty_esc."'";
+        $userInsertSql   = "'".$user_id_empty_esc."'";
+    }
+} else {
+    $user_id_esc = mysqli_real_escape_string($con, $user_id);
+    $userCheck = mysqli_query(
+        $con,
+        "SELECT id, userid
+         FROM users
+         WHERE id = '".$user_id_esc."'
+            OR userid = '".$user_id_esc."'
+         ORDER BY (id = '".$user_id_esc."') DESC
+         LIMIT 1"
+    );
+    if (!$userCheck || mysqli_num_rows($userCheck) === 0) {
+        $response['message'] = 'User not found.';
+        echo json_encode($response);
+        exit;
+    }
+    $userRow = mysqli_fetch_assoc($userCheck);
+    $user_id_stored = isset($userRow['userid']) ? $userRow['userid'] : $user_id;
+    $user_id_stored_esc = mysqli_real_escape_string($con, $user_id_stored);
+    $userWhereClause = "user_id = '".$user_id_stored_esc."'";
+    $userInsertSql   = "'".$user_id_stored_esc."'";
+}
 
 $smCheck = mysqli_query($con, "SELECT id FROM salesman WHERE id = '".$salesman_id."' LIMIT 1");
 if (!$smCheck || mysqli_num_rows($smCheck) === 0) {
@@ -164,7 +191,7 @@ if (empty($parsedItems)) {
 
 $orderQuery = "SELECT id
                 FROM sales_order
-                WHERE user_id = '".mysqli_real_escape_string($con, $user_id_stored)."'
+                WHERE ".$userWhereClause."
                   AND salesman_id = '".$salesman_id."'
                   AND status = 'cart'
                 ORDER BY id DESC
@@ -175,7 +202,7 @@ $order_id   = null;
 if ($orderRes && mysqli_num_rows($orderRes) === 1) {
     $order_id = (int)mysqli_fetch_assoc($orderRes)['id'];
 } else {
-    $insOrder = "INSERT INTO sales_order (user_id, salesman_id, status) VALUES ('".mysqli_real_escape_string($con, $user_id_stored)."', '".$salesman_id."', 'cart')";
+    $insOrder = "INSERT INTO sales_order (user_id, salesman_id, status) VALUES (".$userInsertSql.", '".$salesman_id."', 'cart')";
     if (mysqli_query($con, $insOrder)) {
         $order_id = (int)mysqli_insert_id($con);
     }
