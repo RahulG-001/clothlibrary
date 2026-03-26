@@ -24,6 +24,38 @@ $response = [
 
 $authSalesman = salesman_require_auth($con);
 
+$tempUserPrefix = 'TEMP_';
+
+$usersHasColumn = function ($column) use ($con) {
+    $col = mysqli_real_escape_string($con, (string)$column);
+    $r = mysqli_query($con, "SHOW COLUMNS FROM `users` LIKE '".$col."'");
+    return $r && mysqli_num_rows($r) > 0;
+};
+
+$pickString = function ($src, $keys) {
+    if (!is_array($src)) {
+        return '';
+    }
+    foreach ($keys as $k) {
+        if (isset($src[$k]) && trim((string)$src[$k]) !== '') {
+            return trim((string)$src[$k]);
+        }
+    }
+    return '';
+};
+
+$generateCustomerUserid = function () use ($con) {
+    for ($i = 0; $i < 12; $i++) {
+        $id = 'C'.date('Ymd').'_'.substr(bin2hex(random_bytes(4)), 0, 8);
+        $idEsc = mysqli_real_escape_string($con, $id);
+        $r = mysqli_query($con, "SELECT id FROM users WHERE userid = '".$idEsc."' LIMIT 1");
+        if ($r && mysqli_num_rows($r) === 0) {
+            return $id;
+        }
+    }
+    return null;
+};
+
 $input = [];
 if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
     $raw = file_get_contents('php://input');
@@ -41,6 +73,17 @@ if ($order_id <= 0) {
     echo json_encode($response);
     exit;
 }
+
+// Optional: allow attaching/creating customer during place-order
+$requestedUserId = '';
+if (isset($input['user_id']) && trim((string)$input['user_id']) !== '') {
+    $requestedUserId = trim((string)$input['user_id']);
+} elseif (isset($input['userid']) && trim((string)$input['userid']) !== '') {
+    $requestedUserId = trim((string)$input['userid']);
+}
+
+$customerName = $pickString($input, ['customer_name', 'name', 'full_name']);
+$customerAddress = $pickString($input, ['customer_address', 'address']);
 
 $rawComment = '';
 if (isset($input['salesman_comment'])) {
@@ -77,6 +120,85 @@ if ($order['status'] !== 'cart') {
     $response['message'] = 'Order already placed or invalid status.';
     echo json_encode($response);
     exit;
+}
+
+$orderUserId = isset($order['user_id']) ? (string)$order['user_id'] : '';
+
+// If cart was created without a customer (TEMP_*), save customer now and attach to order.
+// Also allow overriding order user_id with a real existing user_id provided in request.
+if ($requestedUserId !== '') {
+    $reqEsc = mysqli_real_escape_string($con, $requestedUserId);
+    $uRes = mysqli_query(
+        $con,
+        "SELECT userid FROM users
+         WHERE id = '".$reqEsc."'
+            OR userid = '".$reqEsc."'
+         ORDER BY (id = '".$reqEsc."') DESC
+         LIMIT 1"
+    );
+    if (!$uRes || mysqli_num_rows($uRes) === 0) {
+        $response['message'] = 'Provided user_id not found.';
+        echo json_encode($response);
+        exit;
+    }
+    $u = mysqli_fetch_assoc($uRes);
+    $realUserid = isset($u['userid']) ? (string)$u['userid'] : $requestedUserId;
+    $realUseridEsc = mysqli_real_escape_string($con, $realUserid);
+    if ($realUserid !== $orderUserId) {
+        $upU = mysqli_query($con, "UPDATE sales_order SET user_id = '".$realUseridEsc."' WHERE id = '".$order_id."' LIMIT 1");
+        if (!$upU) {
+            $response['message'] = 'Failed to attach user to order.';
+            echo json_encode($response);
+            exit;
+        }
+        $orderUserId = $realUserid;
+    }
+} elseif ($orderUserId === '' || strpos($orderUserId, $tempUserPrefix) === 0) {
+    if ($customerName === '') {
+        $response['message'] = 'customer_name (or name) is required to save customer at place order.';
+        echo json_encode($response);
+        exit;
+    }
+    // Ensure required columns exist (created by alter_users_customer_fields.sql)
+    if (!$usersHasColumn('userid') || !$usersHasColumn('password') || !$usersHasColumn('name') || !$usersHasColumn('address')) {
+        $response['message'] = 'Database is missing customer columns in users table. Run software/admin/alter_users_customer_fields.sql.';
+        echo json_encode($response);
+        exit;
+    }
+
+    $newUserid = $generateCustomerUserid();
+    if ($newUserid === null) {
+        $response['message'] = 'Could not generate a unique customer user id.';
+        echo json_encode($response);
+        exit;
+    }
+
+    $defaultPassword = '123456';
+    $useridEsc = mysqli_real_escape_string($con, $newUserid);
+    $pwEsc = mysqli_real_escape_string($con, $defaultPassword);
+    $nameEsc = mysqli_real_escape_string($con, $customerName);
+    $addrEsc = mysqli_real_escape_string($con, $customerAddress);
+
+    // visiting_card handled via customer_create_api (multipart). For place-order we keep it NULL.
+    $ins = mysqli_query(
+        $con,
+        "INSERT INTO users (userid, password, name, address, visiting_card)
+         VALUES ('".$useridEsc."', '".$pwEsc."', '".$nameEsc."', '".$addrEsc."', NULL)"
+    );
+    if (!$ins) {
+        $response['message'] = 'Could not create customer: '.mysqli_error($con);
+        echo json_encode($response);
+        exit;
+    }
+
+    $upU = mysqli_query($con, "UPDATE sales_order SET user_id = '".$useridEsc."' WHERE id = '".$order_id."' LIMIT 1");
+    if (!$upU) {
+        $response['message'] = 'Customer created but could not attach to order.';
+        echo json_encode($response);
+        exit;
+    }
+
+    $orderUserId = $newUserid;
 }
 
 $itemsRes = mysqli_query(
@@ -195,7 +317,7 @@ $response['success'] = true;
 $response['message'] = 'Order placed successfully. Stock deducted.';
 $response['data'] = [
     'order_id'          => $order_id,
-    'user_id'           => $order['user_id'],
+    'user_id'           => $orderUserId !== '' ? $orderUserId : $order['user_id'],
     'salesman_id'       => (int)$order['salesman_id'],
     'status'            => 'placed',
     'salesman_comment'  => $hasCommentCol ? $rawComment : '',
