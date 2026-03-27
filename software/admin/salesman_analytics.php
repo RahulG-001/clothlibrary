@@ -88,11 +88,14 @@ $canCompute = $hasSalesOrder && $hasSalesOrderItem && $hasIndiadata && !empty($s
 
 if ($canCompute) {
     $now = new DateTime('now');
-    $orderValueExpr = $hasPrice ? "SUM(COALESCE(oi.price,0))" : "0";
     $qtyExpr = $hasQty ? "COALESCE(oi.quantity,0)" : "0";
     $metersExpr = $hasMeters ? "COALESCE(oi.meters,0)" : "0";
+    $nonPcsQtyExpr = $hasMeters ? $metersExpr : $qtyExpr;
+    $orderValueExpr = $hasPrice
+        ? "SUM(COALESCE(oi.price,0) * (CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE ".$nonPcsQtyExpr." END))"
+        : "0";
     $pcsAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE 0 END)";
-    $metersAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN 0 ELSE ".$metersExpr." END)";
+    $metersAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN 0 ELSE ".$nonPcsQtyExpr." END)";
 
     if ($view === 'daily') {
         $periodStart = new DateTime('today');
@@ -199,11 +202,14 @@ if ($canCompute) {
         ];
     }
 
-    $orderValueExpr = $hasPrice ? "SUM(COALESCE(oi.price,0))" : "0";
     $qtyExpr = $hasQty ? "COALESCE(oi.quantity,0)" : "0";
     $metersExpr = $hasMeters ? "COALESCE(oi.meters,0)" : "0";
+    $nonPcsQtyExpr = $hasMeters ? $metersExpr : $qtyExpr;
+    $orderValueExpr = $hasPrice
+        ? "SUM(COALESCE(oi.price,0) * (CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE ".$nonPcsQtyExpr." END))"
+        : "0";
     $pcsAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE 0 END)";
-    $metersAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN 0 ELSE ".$metersExpr." END)";
+    $metersAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN 0 ELSE ".$nonPcsQtyExpr." END)";
 
     $sql = "
       SELECT

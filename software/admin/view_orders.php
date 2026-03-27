@@ -22,7 +22,22 @@ if (!admin_table_exists($con, 'sales_order')) {
     $ordersError = 'Table <code>sales_order</code> not found. Run create_sales_order_tables.sql if needed.';
 } else {
     $hasPrice = admin_column_exists($con, 'sales_order_item', 'price');
-    $sumExpr = $hasPrice ? 'COALESCE(SUM(oi.price), 0)' : '0';
+    $hasQty = admin_column_exists($con, 'sales_order_item', 'quantity');
+    $hasMeters = admin_column_exists($con, 'sales_order_item', 'meters');
+    $hasIndiadata = admin_table_exists($con, 'indiadata');
+
+    $pcsNormExpr = "UPPER(REPLACE(TRIM(p.type),' ',''))";
+    $pcsInList = "('PCS','PC','PIECE','PIECES','PC.')";
+    $pcsCase = "CASE WHEN ".$pcsNormExpr." IN ".$pcsInList." THEN 1 ELSE 0 END";
+    $qtyExpr = $hasQty ? "COALESCE(oi.quantity,0)" : "0";
+    $metersExpr = $hasMeters ? "COALESCE(oi.meters,0)" : "0";
+    if ($hasPrice && $hasIndiadata) {
+        $sumExpr = "COALESCE(SUM(COALESCE(oi.price,0) * (CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE ".$metersExpr." END)), 0)";
+    } elseif ($hasPrice) {
+        $sumExpr = 'COALESCE(SUM(oi.price), 0)';
+    } else {
+        $sumExpr = '0';
+    }
 
     $sql = "
         SELECT o.id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at,
@@ -34,6 +49,7 @@ if (!admin_table_exists($con, 'sales_order')) {
         LEFT JOIN salesman s ON s.id = o.salesman_id
         LEFT JOIN users u ON (u.id = o.user_id OR u.userid = o.user_id)
         LEFT JOIN sales_order_item oi ON oi.order_id = o.id
+        LEFT JOIN indiadata p ON p.itemcode = oi.itemcode
         WHERE LOWER(TRIM(o.status)) = 'placed'
         GROUP BY o.id, o.user_id, o.salesman_id, o.status, o.created_at, o.updated_at,
                  s.first_name, s.last_name, s.phone, u.name

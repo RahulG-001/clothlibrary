@@ -56,6 +56,7 @@ include("auth.php");
           <tr>
             <th>User ID</th>
             <th>Password</th>
+            <th>Visiting Card</th>
             <th>&nbsp;</th>
           </tr>
         </thead>
@@ -68,6 +69,23 @@ include("auth.php");
           <tr>
             <td><?php echo $row["userid"]; ?></td>
             <td><?php echo $row["password"]; ?></td>
+            <td>
+              <?php
+                $vc = isset($row["visiting_card"]) ? (string)$row["visiting_card"] : '';
+                $vc = trim($vc);
+              ?>
+              <?php if ($vc !== '' && $vc !== 'NULL') { ?>
+                <a href="../visiting_cards/<?php echo htmlspecialchars($vc, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
+                  <img
+                    src="../visiting_cards/<?php echo htmlspecialchars($vc, ENT_QUOTES, 'UTF-8'); ?>"
+                    alt="Visiting Card"
+                    style="max-height:50px; max-width:120px; border:1px solid #ddd; padding:2px;"
+                  />
+                </a>
+              <?php } else { ?>
+                <span style="color:#888;">N/A</span>
+              <?php } ?>
+            </td>
             <td><a href="edit_users.php?userid=<?php echo $row["userid"]; ?>"><span class="glyphicon glyphicon-edit"></span> Change Password</a></td>
             <td><a onclick="return checkDelete()" href="delete_user.php?userid=<?php echo $row["userid"]; ?>"><span class="glyphicon glyphicon glyphicon-remove"></span> Delete</a></td>
           </tr>
