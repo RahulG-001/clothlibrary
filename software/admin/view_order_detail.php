@@ -79,8 +79,17 @@ if ($orderId <= 0) {
         if (!$items) {
             $error = 'Could not load order lines: '.htmlspecialchars(mysqli_error($con));
         } elseif ($hasPrice) {
+            // Unit price × ordered qty (PCS = pieces, else meters) — same as order_bill_print.php / get_cart_api
             while ($r = mysqli_fetch_assoc($items)) {
-                $orderTotal += (float)$r['price'];
+                $ptype = isset($r['product_type']) ? $r['product_type'] : '';
+                $isPcs = product_stock_type_is_pcs($ptype);
+                $qtyVal = $isPcs ? (float)$r['quantity'] : (float)(isset($r['meters']) ? $r['meters'] : 0);
+                if (!$isPcs && $hasMeters === false) {
+                    $qtyVal = (float)$r['quantity'];
+                }
+                if (isset($r['price']) && $r['price'] !== null && $r['price'] !== '') {
+                    $orderTotal += ((float)$r['price']) * $qtyVal;
+                }
             }
             mysqli_data_seek($items, 0);
         }
@@ -167,7 +176,7 @@ if ($orderId <= 0) {
           <th>Item code</th>
           <th>Description</th>
           <th>Quantity</th>
-          <?php if ($hasPrice) { ?><th>Price (line)</th><?php } ?>
+          <?php if ($hasPrice) { ?><th>Unit price</th><th>Line total</th><?php } ?>
         </tr>
       </thead>
       <tbody>
@@ -199,8 +208,12 @@ if ($orderId <= 0) {
               echo htmlspecialchars(number_format((float)$qtyLine, 2));
             ?>
           </td>
-          <?php if ($hasPrice) { ?>
-          <td><?php echo $line['price'] !== null && $line['price'] !== '' ? number_format((float)$line['price'], 2) : '—'; ?></td>
+          <?php if ($hasPrice) {
+              $unitP = ($line['price'] !== null && $line['price'] !== '') ? (float)$line['price'] : null;
+              $lineTot = ($unitP !== null) ? round($unitP * $qtyLine, 2) : null;
+          ?>
+          <td><?php echo $unitP !== null ? number_format($unitP, 2) : '—'; ?></td>
+          <td><?php echo $lineTot !== null ? number_format($lineTot, 2) : '—'; ?></td>
           <?php } ?>
         </tr>
         <?php } ?>

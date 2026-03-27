@@ -77,12 +77,13 @@ $pcsCase = "CASE WHEN ".$pcsNormExpr." IN ".$pcsInList." THEN 1 ELSE 0 END";
 
 $qtyExpr = $hasQty ? "COALESCE(oi.quantity,0)" : "0";
 $metersExpr = $hasMeters ? "COALESCE(oi.meters,0)" : "0";
+$nonPcsQtyExpr = $hasMeters ? $metersExpr : $qtyExpr;
 
 $orderValueExpr = $hasLinePrice
-    ? "SUM(COALESCE(oi.price,0) * (CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE ".$metersExpr." END))"
+    ? "SUM(COALESCE(oi.price,0) * (CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE ".$nonPcsQtyExpr." END))"
     : "0";
 $pcsAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN ".$qtyExpr." ELSE 0 END)";
-$metersAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN 0 ELSE ".$metersExpr." END)";
+$metersAggExpr = "SUM(CASE WHEN (".$pcsCase.")=1 THEN 0 ELSE ".$nonPcsQtyExpr." END)";
 
 // Customer dropdown: load customers that have placed orders
 $customerKey = isset($_GET['customer_userid']) ? trim((string)$_GET['customer_userid']) : '';
