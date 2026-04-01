@@ -57,7 +57,8 @@
 				if($userid =='' || $password =='' ){
 					$status = '<div class="alert alert-success" role="alert"><span class="glyphicon glyphicon-ok"></span>Something is missing.</div>';
 				}else{
-				    $query = "INSERT into `users` (userid, password) VALUES ('$userid', '$password')";
+				    // Save userid in `name` as well so lists/analytics that use name show the login id.
+				    $query = "INSERT into `users` (userid, password, name) VALUES ('$userid', '$password', '$userid')";
     				$result = mysqli_query($con,$query);
     				if($result){
     					$status = '<div class="alert alert-success" role="alert"><span class="glyphicon glyphicon-ok"></span> New User has been added successfully.</div>';

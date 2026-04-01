@@ -177,11 +177,12 @@ if ($uploadFile !== null) {
 
 $useridEsc = mysqli_real_escape_string($con, $userid);
 $pwEsc     = mysqli_real_escape_string($con, $defaultPassword);
-$nameEsc   = mysqli_real_escape_string($con, $name);
+$nameWithUserid = trim($name).' ('.$userid.')';
+$nameEsc   = mysqli_real_escape_string($con, $nameWithUserid);
 $addrEsc   = mysqli_real_escape_string($con, $address);
 $vcEsc     = mysqli_real_escape_string($con, $visitingCardFile);
 
-$sql = "INSERT INTO users (userid, password, name, address, visiting_card) VALUES ('".$nameEsc."', '".$pwEsc."', '".$nameEsc."', '".$addrEsc."', ".($visitingCardFile === '' ? "NULL" : "'".$vcEsc."'").")";
+$sql = "INSERT INTO users (userid, password, name, address, visiting_card) VALUES ('".$useridEsc."', '".$pwEsc."', '".$nameEsc."', '".$addrEsc."', ".($visitingCardFile === '' ? "NULL" : "'".$vcEsc."'").")";
 
 if (!mysqli_query($con, $sql)) {
     $response['message'] = 'Could not create customer: '.mysqli_error($con);
@@ -202,9 +203,9 @@ $response['message'] = 'Customer created. Name saved in database. Login user id 
     .($visitingCardFile !== '' ? ' Visiting card saved on server.' : '');
 $response['data'] = [
     'id'                 => $newId,
-    'user_id'            => $name,
-    'userid'             => $name,
-    'name'               => $name,
+    'user_id'            => $userid,
+    'userid'             => $userid,
+    'name'               => $nameWithUserid,
     'address'            => $address,
     'visiting_card'      => $visitingCardFile,
     'visiting_card_url'  => $vcUrl,

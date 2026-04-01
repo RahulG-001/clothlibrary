@@ -25,7 +25,7 @@ $query = mysqli_query($con,$sel_query);
 if($query->num_rows > 0){ 
     // Output each row of the data 
     while($row = $query->fetch_assoc()){ 
-        $lineData = array($row['stockinward'],$row['itemcode'], $row['description'],$row['width'], $row['quantity'],$row['type'],$row['soldtoclients'],$row['comments'],date("d-m-Y", strtotime($row['trn_date']))); 
+        $lineData = array($row['stockinward'],$row['itemcode'], $row['description'],$row['location'],$row['width'], $row['quantity'],$row['type'],$row['soldtoclients'],$row['comments'],date("d-m-Y", strtotime($row['trn_date']))); 
         array_walk($lineData, 'filterData'); 
         $excelData .= implode("\t", array_values($lineData)) . "\n";
     } 

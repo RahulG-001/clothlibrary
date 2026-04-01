@@ -2,3 +2,6 @@
 /config.php
 /software/admin/db.php
 
+# Runtime / debug logs (do not commit)
+/software/admin/qr_api_errors.log
+

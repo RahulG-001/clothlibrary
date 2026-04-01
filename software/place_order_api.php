@@ -160,7 +160,8 @@ $createCustomerAndAttach = function (string $cName, string $cAddress) use (
     $defaultPassword = '123456';
     $useridEsc = mysqli_real_escape_string($con, $newUserid);
     $pwEsc     = mysqli_real_escape_string($con, $defaultPassword);
-    $nameEsc   = mysqli_real_escape_string($con, $cName);
+    $nameWithUserid = trim($cName).' ('.$newUserid.')';
+    $nameEsc   = mysqli_real_escape_string($con, $nameWithUserid);
     $addrEsc   = mysqli_real_escape_string($con, $cAddress);
 
     // visiting_card handled via customer_create_api (multipart). For place-order we keep it NULL.

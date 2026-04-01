@@ -166,7 +166,7 @@ foreach ($items as $item) {
             if ($piecesIn > 0) {
                 $rejectedItems[] = ['itemcode' => $itemcode, 'reason' => 'meter_product_use_meters_not_pieces', 'product_type' => 'M'];
             } else {
-                $rejectedItems[] = ['itemcode' => $itemcode, 'reason' => 'missing_meters', 'product_mode' => 'M'];
+                $rejectedItems[] = ['itemcode' => $itemcode, 'reason' => 'missing_meters', 'product_type' => 'M'];
             }
             continue;
         }
@@ -302,20 +302,22 @@ foreach ($parsedItems as $v) {
         if ($hasPriceColumn && $addLinePrice !== null) {
             $priceValSql = "'".mysqli_real_escape_string($con, number_format($addLinePrice, 4, '.', ''))."'";
         }
+        $priceCols = $hasPriceColumn ? ', price' : '';
+        $priceVals = $hasPriceColumn ? ', '.$priceValSql : '';
         if ($mode === 'M') {
             $mStr = mysqli_real_escape_string($con, number_format($amount, 2, '.', ''));
             if ($hasMetersColumn) {
-                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."', '".$mStr."', ".$priceValSql.")";
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters".$priceCols.") VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."', '".$mStr."'".$priceVals.")";
             } else {
-                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."', ".$priceValSql.")";
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity".$priceCols.") VALUES ('".$order_id."', '".$itemcode_esc."', '".$qtyOne."'".$priceVals.")";
             }
         } else {
             $qStr = mysqli_real_escape_string($con, number_format($amount, 2, '.', ''));
             $zeroM = mysqli_real_escape_string($con, '0.00');
             if ($hasMetersColumn) {
-                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qStr."', '".$zeroM."', ".$priceValSql.")";
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, meters".$priceCols.") VALUES ('".$order_id."', '".$itemcode_esc."', '".$qStr."', '".$zeroM."'".$priceVals.")";
             } else {
-                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity, price) VALUES ('".$order_id."', '".$itemcode_esc."', '".$qStr."', ".$priceValSql.")";
+                $insItem = "INSERT INTO sales_order_item (order_id, itemcode, quantity".$priceCols.") VALUES ('".$order_id."', '".$itemcode_esc."', '".$qStr."'".$priceVals.")";
             }
         }
         if (mysqli_query($con, $insItem)) {
